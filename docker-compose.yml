@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    container_name: links-manager-db
+    environment:
+      POSTGRES_USER: links_user
+      POSTGRES_PASSWORD: links_password
+      POSTGRES_DB: links_manager
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"  # Изменили порт на 5433
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
