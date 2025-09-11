@@ -12,6 +12,15 @@
   text-align: center;
 }
 
+.btns {
+  display: flex;
+  gap: 20px;
+}
+
+.btn2 {
+  background: #1b9e5d !important;
+}
+
 .form-section {
   background: #1d1d1d;
   padding: 30px;
@@ -54,5 +63,18 @@
 }
 
 .button:hover {
-  background: #0051cc;
+  opacity: 0.8;
+}
+
+.links-list {
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.links-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }

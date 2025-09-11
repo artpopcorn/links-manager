@@ -2,10 +2,19 @@
 import './page.css';
 import { useState } from 'react';
 
+interface Link {
+  id: string;
+  title: string;
+  url: string;
+  createdAt: string;
+}
+
 export default function Home() {
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingLinks, setLoadingLinks] = useState(false);
+  const [links, setLinks] = useState<Link[]>([]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,13 +43,30 @@ export default function Home() {
     }
   };
 
+  const handleGetLinks = async () => {
+    setLoadingLinks(true);
+    
+    try {
+      const response = await fetch('/api/links');
+      const data = await response.json();
+      
+      if (response.ok) {
+        setLinks(data.links);
+      } else {
+        alert('Ошибка при получении ссылок');
+      }
+    } catch (error) {
+      alert('Ошибка соединения');
+    } finally {
+      setLoadingLinks(false);
+    }
+  };
+
   return (
     <div className="container">
       <h1 className="title">Links Manager</h1>
       
       <form className="form-section" onSubmit={handleSubmit}>
-        <h2>Добавить новую ссылку</h2>
-        
         <div className="form-group">
           <label className="label">Название ссылки:</label>
           <input 
@@ -64,11 +90,41 @@ export default function Home() {
             required
           />
         </div>
-        
-        <button type="submit" className="button" disabled={loading}>
-          {loading ? 'Отправляется...' : 'Отправить в БД'}
-        </button>
+
+        <div className="btns">
+          <button type="submit" className="button" disabled={loading}>
+            {loading ? 'Отправляется...' : 'Отправить в БД'}
+          </button>
+
+          <button 
+            type="button" 
+            className="button btn2" 
+            disabled={loadingLinks}
+            onClick={handleGetLinks}
+          >
+            {loadingLinks ? 'Получаем...' : 'Получить из БД'}
+          </button>
+        </div>
       </form>
+
+      {/* Список ссылок */}
+      {links.length > 0 && (
+        <div className="form-section">
+          <h2>Ссылки из базы данных:</h2>
+          <ul className="links-list">
+            {links.map((link) => (
+              <li key={link.id} className="link-item">
+                <div className="link-title">{link.title}</div>
+                <div className="link-url">
+                  <a href={link.url} target="_blank" rel="noopener noreferrer">
+                    {link.url}
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
