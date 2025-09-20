@@ -6,15 +6,16 @@ import { prisma } from '@/lib/db'
 // Функция для создания новой ссылки (обрабатывает POST-запросы)
 export async function POST(request: NextRequest) {
   try {
-    // Извлекаем title и url из тела запроса (JSON)
-    const { title, url } = await request.json()
+    // Извлекаем title, url и color из тела запроса (JSON)
+    const { title, url, color }: { title: string; url: string; color?: 'RED' | 'GREEN' } = await request.json()
     
     // Создаем новую запись в базе данных в таблице link
     const link = await prisma.link.create({
       data: {
         title, // Заголовок ссылки
-        url    // Адрес ссылки
-      }
+        url,   // Адрес ссылки
+        color: color || 'RED'  // Цвет ссылки с значением по умолчанию
+      } as any
     })
     
     // Возвращаем успешный ответ с созданной ссылкой

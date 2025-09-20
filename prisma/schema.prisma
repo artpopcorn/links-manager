@@ -11,18 +11,21 @@ datasource db {
 }
 
 
+enum LinkColor {
+  RED   // #D05353
+  GREEN // #2FE094
+}
+
 model Link {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   title       String
   url         String
   description String?
   tags        String[]
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  // Удалите эти строки:
-  // userId      String
-  // user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  color       LinkColor @default(RED)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@map("links")
 }
