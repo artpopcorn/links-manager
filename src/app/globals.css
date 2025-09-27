@@ -1,15 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #000000;
   --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +15,87 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-roboto-regular), system-ui, sans-serif;
+  font-weight: 400; /* Regular */
+  font-size: 16px;
+}
+
+.container {
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.container_links {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 2fr;
+  gap: 10px;
+  height: 100vh;
+  padding: 20px;
+}
+.category_list {
+  background: #212121;
+  padding: 30px;
+  border-radius: 20px;
+}
+
+.inner_category {
+  background: #212121;
+  padding: 30px;
+  border-radius: 20px;
+}
+
+.links_list {
+  background: #212121;
+  padding: 30px;
+  border-radius: 20px;
+}
+
+.link_info {
+  background: #212121;
+  padding: 30px;
+  border-radius: 20px;
+}
+
+.link_info_link {
+  margin-top: 10px;
+  display: inline-flex;
+  font-size: 20px;
+  align-items: center;
+  gap: 10px;
+
+  /* красивое подчёркивание */
+  text-decoration: underline;
+  text-decoration-color: #ffffff; /* цвет подчёркивания */
+  text-decoration-thickness: 0.5px; /* толщина */
+  text-underline-offset: 5px; /* отступ от текста */
+  text-decoration-skip-ink: auto; /* аккуратное обхождение букв */
+  transition: all 0.3s ease;
+}
+
+.link_info_link:hover {
+  text-decoration: none;
+}
+
+h2 {
+  font-family: var(--font-roboto-medium), system-ui, sans-serif;
+  font-weight: 500; /* Medium */
+  font-size: 24px;
+  margin-top: 60px;
+}
+
+.link_info_description {
+  margin-top: 30px;
+}
+
+.link_info_image {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.link_info_image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
