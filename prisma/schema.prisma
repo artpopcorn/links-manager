@@ -10,22 +10,59 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Главная родительская рубрика
+model ParentCategory {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  slug        String   @unique
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-enum LinkColor {
-  RED   // #D05353
-  GREEN // #2FE094
+  // Связь с дочерними рубриками
+  childCategories ChildCategory[]
+
+  @@map("parent_categories")
 }
 
+// Дочерняя рубрика
+model ChildCategory {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  slug        String   @unique
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Связь с родительской рубрикой
+  parentId       String
+  parentCategory ParentCategory @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  // Связь с записями/ссылками
+  links Link[]
+
+  @@map("child_categories")
+}
+
+// Записи/ссылки
 model Link {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   title       String
   url         String
   description String?
-  tags        String[]
-  color       LinkColor @default(RED)
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  image       String?  // URL картинки
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Связь с дочерней рубрикой
+  categoryId    String
+  childCategory ChildCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@map("links")
 }

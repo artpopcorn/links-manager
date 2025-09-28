@@ -6,16 +6,33 @@ import { prisma } from '@/lib/db'
 // Функция для создания новой ссылки (обрабатывает POST-запросы)
 export async function POST(request: NextRequest) {
   try {
-    // Извлекаем title, url и color из тела запроса (JSON)
-    const { title, url, color }: { title: string; url: string; color?: 'RED' | 'GREEN' } = await request.json()
+    // Извлекаем данные из тела запроса (JSON)
+    const { title, url, description, image, categoryId }: { 
+      title: string; 
+      url: string; 
+      description?: string;
+      image?: string;
+      categoryId: string;
+    } = await request.json()
+    
+    // Проверяем обязательные поля
+    if (!title || !url || !categoryId) {
+      return NextResponse.json(
+        { error: 'Title, url and categoryId are required' },
+        { status: 400 }
+      );
+    }
     
     // Создаем новую запись в базе данных в таблице link
     const link = await prisma.link.create({
       data: {
-        title, // Заголовок ссылки
-        url,   // Адрес ссылки
-        color: color || 'RED'  // Цвет ссылки с значением по умолчанию
-      } as any
+        title,                         // Заголовок ссылки
+        url,                          // Адрес ссылки
+        description: description || '', // Описание ссылки
+        image: image || null,          // URL картинки
+        categoryId,                    // ID дочерней категории
+        order: 0                      // Порядок сортировки
+      }
     })
     
     // Возвращаем успешный ответ с созданной ссылкой
@@ -31,12 +48,20 @@ export async function POST(request: NextRequest) {
 // Функция для получения всех ссылок (обрабатывает GET-запросы)
 export async function GET() {
   try {
-    // Получаем все ссылки из базы данных
+    // Получаем все ссылки из базы данных с информацией о категориях
     const links = await prisma.link.findMany({
+      include: {
+        childCategory: {
+          include: {
+            parentCategory: true
+          }
+        }
+      },
       orderBy: {
         createdAt: 'desc' // Сортируем по дате создания (новые сверху)
       }
     })
+    
     // Возвращаем список ссылок в JSON формате
     return NextResponse.json({ links })
   } catch (error) {
