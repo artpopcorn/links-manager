@@ -23,16 +23,23 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Подготавливаем данные для создания
+    const linkData: any = {
+      title,                         // Заголовок ссылки
+      url,                          // Адрес ссылки
+      description: description || '', // Описание ссылки
+      categoryId,                    // ID дочерней категории
+      order: 0                      // Порядок сортировки
+    };
+    
+    // Добавляем изображение, если оно есть
+    if (image) {
+      linkData.image = image;
+    }
+
     // Создаем новую запись в базе данных в таблице link
     const link = await prisma.link.create({
-      data: {
-        title,                         // Заголовок ссылки
-        url,                          // Адрес ссылки
-        description: description || '', // Описание ссылки
-        image: image || null,          // URL картинки
-        categoryId,                    // ID дочерней категории
-        order: 0                      // Порядок сортировки
-      }
+      data: linkData
     })
     
     // Возвращаем успешный ответ с созданной ссылкой
@@ -50,13 +57,6 @@ export async function GET() {
   try {
     // Получаем все ссылки из базы данных с информацией о категориях
     const links = await prisma.link.findMany({
-      include: {
-        childCategory: {
-          include: {
-            parentCategory: true
-          }
-        }
-      },
       orderBy: {
         createdAt: 'desc' // Сортируем по дате создания (новые сверху)
       }
@@ -69,5 +69,68 @@ export async function GET() {
     console.error('Error fetching links:', error)
     // Возвращаем ошибку клиенту с кодом 500
     return NextResponse.json({ error: 'Failed to fetch links' }, { status: 500 })
+  }
+}
+
+// Функция для обновления ссылки (обрабатывает PUT-запросы)
+export async function PUT(request: NextRequest) {
+  try {
+    const { id, title, url, description, image }: { 
+      id: string;
+      title?: string; 
+      url?: string; 
+      description?: string;
+      image?: string | null;
+    } = await request.json();
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Link ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Создаем объект с данными для обновления (только переданные поля)
+    const updateData: any = {};
+    if (title !== undefined) updateData.title = title;
+    if (url !== undefined) updateData.url = url;
+    if (description !== undefined) updateData.description = description;
+    if (image !== undefined) updateData.image = image;
+    
+    // Обновляем ссылку в базе данных
+    const link = await prisma.link.update({
+      where: { id },
+      data: updateData
+    });
+    
+    return NextResponse.json({ success: true, link });
+  } catch (error) {
+    console.error('Error updating link:', error);
+    return NextResponse.json({ error: 'Failed to update link' }, { status: 500 });
+  }
+}
+
+// Функция для удаления ссылки (обрабатывает DELETE-запросы)
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Link ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Удаляем ссылку
+    await prisma.link.delete({
+      where: { id }
+    });
+    
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting link:', error);
+    return NextResponse.json({ error: 'Failed to delete link' }, { status: 500 });
   }
 }

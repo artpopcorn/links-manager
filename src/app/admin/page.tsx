@@ -37,6 +37,22 @@ export default function AdminPage() {
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [isAddingImage, setIsAddingImage] = useState(false);
 
+  // Состояние редактирования существующих ссылок
+  const [isEditingLink, setIsEditingLink] = useState(false);
+  const [editingLinkForm, setEditingLinkForm] = useState({
+    title: '',
+    url: '',
+    description: '',
+    image: ''
+  });
+
+  // Состояние подтверждения удаления
+  const [pendingDelete, setPendingDelete] = useState<{
+    type: 'parent' | 'child' | 'link' | 'image';
+    id: string;
+    action: () => Promise<void>;
+  } | null>(null);
+
   // Состояние форм
   const [parentTitle, setParentTitle] = useState('');
   const [childTitle, setChildTitle] = useState('');
@@ -49,6 +65,8 @@ export default function AdminPage() {
 
   // Состояние для загрузки файлов
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // Мапа для хранения файлов для каждой ссылки
+  const [linkFiles, setLinkFiles] = useState<Map<string, File>>(new Map());
 
   // Загрузка данных
   useEffect(() => {
@@ -65,6 +83,10 @@ export default function AdminPage() {
           setIsAddingImage(true);
           const imageUrl = URL.createObjectURL(file);
           setLinkForm({...linkForm, image: imageUrl});
+          
+          // Сохраняем файл для текущей ссылки
+          const tempLinkId = 'temp-link-' + Date.now();
+          setLinkFiles(prev => new Map(prev.set(tempLinkId, file)));
         }
       }
     };
@@ -93,10 +115,82 @@ export default function AdminPage() {
     }
   };
 
+  // Функция для загрузки категорий с сохранением выбора
+  const fetchCategoriesWithSelection = async (selections: {
+    parentId: string;
+    childId: string;
+    linkId: string;
+  }) => {
+    try {
+      const response = await fetch('/api/categories');
+      const data = await response.json();
+      setCategories(data.categories);
+      
+      // Восстанавливаем выбор, если элементы еще существуют
+      const parentExists = data.categories.find((cat: any) => cat.id === selections.parentId);
+      if (parentExists) {
+        setSelectedParentId(selections.parentId);
+        
+        const childExists = parentExists.childCategories.find((child: any) => child.id === selections.childId);
+        if (childExists) {
+          setSelectedChildId(selections.childId);
+          
+          const linkExists = childExists.links.find((link: any) => link.id === selections.linkId);
+          if (linkExists) {
+            setSelectedLinkId(selections.linkId);
+          } else if (childExists.links.length > 0) {
+            setSelectedLinkId(childExists.links[0].id);
+          }
+        } else if (parentExists.childCategories.length > 0) {
+          setSelectedChildId(parentExists.childCategories[0].id);
+          if (parentExists.childCategories[0].links.length > 0) {
+            setSelectedLinkId(parentExists.childCategories[0].links[0].id);
+          }
+        }
+      } else if (data.categories.length > 0) {
+        // Если родительская категория не найдена, выбираем первую доступную
+        setSelectedParentId(data.categories[0].id);
+        if (data.categories[0].childCategories.length > 0) {
+          setSelectedChildId(data.categories[0].childCategories[0].id);
+          if (data.categories[0].childCategories[0].links.length > 0) {
+            setSelectedLinkId(data.categories[0].childCategories[0].links[0].id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
   // Получение текущих данных
   const selectedParent = categories.find(cat => cat.id === selectedParentId);
   const selectedChild = selectedParent?.childCategories.find(child => child.id === selectedChildId);
   const selectedLink = selectedChild?.links.find(link => link.id === selectedLinkId);
+
+  // Сбрасываем редактирование при смене ссылки
+  useEffect(() => {
+    if (isEditingLink) {
+      cancelEditingLink();
+    }
+  }, [selectedLinkId]);
+
+  // Обработчик кликов для отмены удаления
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pendingDelete) {
+        const target = event.target as HTMLElement;
+        // Проверяем, что клик не по кнопке сохранить
+        if (!target.closest('.save_btn')) {
+          setPendingDelete(null);
+        }
+      }
+    };
+
+    if (pendingDelete) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [pendingDelete]);
 
   // Обработчики добавления с переключением состояния
   const handleAddParent = () => {
@@ -135,22 +229,232 @@ export default function AdminPage() {
     if (isAddingImage) {
       setIsAddingImage(false);
       setSelectedFile(null);
-      setLinkForm({...linkForm, image: ''});
+      if (isAddingLink) {
+        setLinkForm({...linkForm, image: ''});
+      }
     } else {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
-      input.onchange = (e) => {
+      input.onchange = async (e) => {
         const file = (e.target as HTMLInputElement).files?.[0];
         if (file) {
-          setSelectedFile(file);
-          setIsAddingImage(true);
-          const imageUrl = URL.createObjectURL(file);
-          setLinkForm({...linkForm, image: imageUrl});
+          if (isAddingLink) {
+            // Для новых ссылок - сохраняем в локальное состояние
+            setSelectedFile(file);
+            setIsAddingImage(true);
+            const imageUrl = URL.createObjectURL(file);
+            setLinkForm({...linkForm, image: imageUrl});
+          } else if (selectedLink) {
+            // Для существующих ссылок - сразу загружаем на сервер и обновляем БД
+            try {
+              const uploadedPath = await uploadImage(file);
+              if (uploadedPath) {
+                const response = await fetch(`/api/admin/links`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    id: selectedLink.id,
+                    image: uploadedPath
+                  })
+                });
+
+                if (response.ok) {
+                  // Сохраняем текущий выбор
+                  const currentSelections = {
+                    parentId: selectedParentId,
+                    childId: selectedChildId,
+                    linkId: selectedLinkId
+                  };
+                  await fetchCategoriesWithSelection(currentSelections);
+                } else {
+                  console.error('Failed to update link image');
+                }
+              }
+            } catch (error) {
+              console.error('Error adding image:', error);
+            }
+          }
         }
       };
       input.click();
     }
+  };
+
+  // Функция для смены изображения существующей ссылки
+  const handleChangeImage = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file && selectedLink) {
+        try {
+          // Загружаем новое изображение на сервер
+          const uploadedPath = await uploadImage(file);
+          if (uploadedPath) {
+            // Удаляем старое изображение с сервера, если оно есть
+            if (selectedLink.image && selectedLink.image.startsWith('/uploads/')) {
+              await fetch(`/api/delete-file?path=${selectedLink.image}`, {
+                method: 'DELETE'
+              });
+            }
+
+            // Обновляем изображение в базе данных
+            const response = await fetch(`/api/admin/links`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: selectedLink.id,
+                image: uploadedPath
+              })
+            });
+
+            if (response.ok) {
+              // Сохраняем текущий выбор и перезагружаем данные
+              const currentSelections = {
+                parentId: selectedParentId,
+                childId: selectedChildId,
+                linkId: selectedLinkId
+              };
+              await fetchCategoriesWithSelection(currentSelections);
+            } else {
+              console.error('Failed to update link image');
+            }
+          }
+        } catch (error) {
+          console.error('Error changing image:', error);
+        }
+      }
+    };
+    input.click();
+  };
+
+  // Функция для начала редактирования существующей ссылки
+  const startEditingLink = () => {
+    if (selectedLink && !isAddingLink) {
+      setIsEditingLink(true);
+      setEditingLinkForm({
+        title: selectedLink.title,
+        url: selectedLink.url,
+        description: selectedLink.description || '',
+        image: selectedLink.image || ''
+      });
+    }
+  };
+
+  // Функция для отмены редактирования
+  const cancelEditingLink = () => {
+    setIsEditingLink(false);
+    setEditingLinkForm({
+      title: '',
+      url: '',
+      description: '',
+      image: ''
+    });
+  };
+
+  // Функция для сохранения изменений существующей ссылки
+  const saveEditingLink = async () => {
+    if (!selectedLink || !editingLinkForm.title.trim() || !editingLinkForm.url.trim()) {
+      return;
+    }
+
+    try {
+      // Сохраняем текущий выбор
+      const currentSelections = {
+        parentId: selectedParentId,
+        childId: selectedChildId,
+        linkId: selectedLinkId
+      };
+
+      const response = await fetch(`/api/admin/links`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedLink.id,
+          title: editingLinkForm.title,
+          url: editingLinkForm.url,
+          description: editingLinkForm.description
+        })
+      });
+
+      if (response.ok) {
+        // Завершаем редактирование
+        setIsEditingLink(false);
+        setEditingLinkForm({
+          title: '',
+          url: '',
+          description: '',
+          image: ''
+        });
+        // Перезагружаем данные с сохранением выбора
+        await fetchCategoriesWithSelection(currentSelections);
+      } else {
+        console.error('Failed to update link');
+      }
+    } catch (error) {
+      console.error('Error updating link:', error);
+    }
+  };
+
+  // Функция для удаления изображения при добавлении новой ссылки
+  const handleRemoveNewImage = () => {
+    if (!confirm('Вы уверены, что хотите удалить это изображение?')) {
+      return;
+    }
+    
+    // Очищаем выбранный файл и изображение в форме
+    setSelectedFile(null);
+    setLinkForm({...linkForm, image: ''});
+    setIsAddingImage(false);
+  };
+
+  // Функция для удаления изображения существующей ссылки
+  const handleDeleteImage = () => {
+    if (!selectedLink || !selectedLink.image) return;
+
+    const deleteAction = async () => {
+      try {
+        // Удаляем файл с сервера, если это загруженное изображение
+        if (selectedLink.image.startsWith('/uploads/')) {
+          await fetch(`/api/delete-file?path=${selectedLink.image}`, {
+            method: 'DELETE'
+          });
+        }
+
+        // Обновляем запись в базе данных, убирая изображение
+        const response = await fetch(`/api/admin/links`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: selectedLink.id,
+            image: null
+          })
+        });
+
+        if (response.ok) {
+          // Сохраняем текущий выбор и перезагружаем данные
+          const currentSelections = {
+            parentId: selectedParentId,
+            childId: selectedChildId,
+            linkId: selectedLinkId
+          };
+          await fetchCategoriesWithSelection(currentSelections);
+        } else {
+          console.error('Failed to delete link image');
+        }
+      } catch (error) {
+        console.error('Error deleting image:', error);
+      }
+    };
+
+    // Устанавливаем состояние ожидающего удаления
+    setPendingDelete({
+      type: 'image',
+      id: selectedLink.id,
+      action: deleteAction
+    });
   };
 
   // Добавление в локальный список (показать в интерфейсе)
@@ -198,13 +502,19 @@ export default function AdminPage() {
 
     // Добавление ссылки
     if (isAddingLink && linkForm.title.trim() && linkForm.url.trim() && selectedChildId) {
+      const tempLinkId = 'temp-link-' + Date.now();
       const tempLink: Link = {
-        id: 'temp-link-' + Date.now(),
+        id: tempLinkId,
         title: linkForm.title,
         url: linkForm.url,
         description: linkForm.description,
         image: linkForm.image
       };
+
+      // Сохраняем файл для этой ссылки, если он есть
+      if (selectedFile) {
+        setLinkFiles(prev => new Map(prev.set(tempLinkId, selectedFile)));
+      }
 
       setCategories(prevCategories => 
         prevCategories.map(category => {
@@ -235,8 +545,190 @@ export default function AdminPage() {
     }
   };
 
+  // Функции удаления
+  const handleDeleteParent = (parentId: string) => {
+    const deleteAction = async () => {
+      try {
+        // Если это временная категория, просто удаляем из локального состояния
+        if (parentId.startsWith('temp-')) {
+          setCategories(prev => prev.filter(cat => cat.id !== parentId));
+          // Сбрасываем выбор если удаляем выбранную категорию
+          if (selectedParentId === parentId) {
+            setSelectedParentId('');
+            setSelectedChildId('');
+            setSelectedLinkId('');
+          }
+          return;
+        }
+
+        // Удаляем из базы данных
+        const response = await fetch(`/api/admin/parent-categories?id=${parentId}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          // Перезагружаем данные (выбор сбросится автоматически при удалении)
+          await fetchCategories();
+        } else {
+          console.error('Failed to delete parent category');
+        }
+      } catch (error) {
+        console.error('Error deleting parent category:', error);
+      }
+    };
+
+    // Устанавливаем состояние ожидающего удаления
+    setPendingDelete({
+      type: 'parent',
+      id: parentId,
+      action: deleteAction
+    });
+  };
+
+  const handleDeleteChild = (childId: string) => {
+    const deleteAction = async () => {
+      try {
+        // Если это временная категория, просто удаляем из локального состояния
+        if (childId.startsWith('temp-')) {
+          setCategories(prev => 
+            prev.map(parent => ({
+              ...parent,
+              childCategories: parent.childCategories.filter(child => child.id !== childId)
+            }))
+          );
+          // Сбрасываем выбор если удаляем выбранную категорию
+          if (selectedChildId === childId) {
+            setSelectedChildId('');
+            setSelectedLinkId('');
+          }
+          return;
+        }
+
+        // Удаляем из базы данных
+        const response = await fetch(`/api/admin/child-categories?id=${childId}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          // Перезагружаем данные (выбор сбросится автоматически при удалении)
+          await fetchCategories();
+        } else {
+          console.error('Failed to delete child category');
+        }
+      } catch (error) {
+        console.error('Error deleting child category:', error);
+      }
+    };
+
+    // Устанавливаем состояние ожидающего удаления
+    setPendingDelete({
+      type: 'child',
+      id: childId,
+      action: deleteAction
+    });
+  };
+
+  const handleDeleteLink = (linkId: string) => {
+    const deleteAction = async () => {
+      try {
+        // Если это временная ссылка, просто удаляем из локального состояния
+        if (linkId.startsWith('temp-')) {
+          setCategories(prev => 
+            prev.map(parent => ({
+              ...parent,
+              childCategories: parent.childCategories.map(child => ({
+                ...child,
+                links: child.links.filter(link => link.id !== linkId)
+              }))
+            }))
+          );
+          // Удаляем файл из мапы если он есть
+          setLinkFiles(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(linkId);
+            return newMap;
+          });
+          // Сбрасываем выбор если удаляем выбранную ссылку
+          if (selectedLinkId === linkId) {
+            setSelectedLinkId('');
+          }
+          return;
+        }
+
+        // Удаляем из базы данных
+        const response = await fetch(`/api/admin/links?id=${linkId}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          // Перезагружаем данные (выбор сбросится автоматически при удалении)
+          await fetchCategories();
+        } else {
+          console.error('Failed to delete link');
+        }
+      } catch (error) {
+        console.error('Error deleting link:', error);
+      }
+    };
+
+    // Устанавливаем состояние ожидающего удаления
+    setPendingDelete({
+      type: 'link',
+      id: linkId,
+      action: deleteAction
+    });
+  };
+
+  // Функция для загрузки изображения на сервер
+  const uploadImage = async (file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.filePath;
+      } else {
+        console.error('Failed to upload image');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return null;
+    }
+  };
+
+  // Универсальная функция сохранения
+  const handleUniversalSave = async () => {
+    // Если есть ожидающее удаление - выполняем его
+    if (pendingDelete) {
+      await pendingDelete.action();
+      setPendingDelete(null);
+      return;
+    }
+    
+    // Если есть несохраненные изменения (добавление новых элементов)
+    if (hasUnsavedChanges) {
+      return handleAddToList();
+    }
+    
+    // Если редактируем существующую ссылку
+    if (hasEditingChanges) {
+      return saveEditingLink();
+    }
+    
+    // Если есть несохраненные данные в БД
+    if (hasUnsavedData) {
+      return handleSaveToDatabase();
+    }
+  };
+
   // Сохранение в базу данных
-// Сохранение в базу данных
 const handleSaveToDatabase = async () => {
     try {
       console.log('Starting save to database...');
@@ -321,11 +813,26 @@ const handleSaveToDatabase = async () => {
           
           for (const link of unsavedLinks) {
             console.log('Saving links for child:', realChildId);
+            
+            // Если есть изображение и это blob URL, загружаем его на сервер
+            let finalImagePath = link.image;
+            if (link.image && link.image.startsWith('blob:')) {
+              const linkFile = linkFiles.get(link.id);
+              if (linkFile) {
+                console.log('Uploading image to server...');
+                const uploadedPath = await uploadImage(linkFile);
+                if (uploadedPath) {
+                  finalImagePath = uploadedPath;
+                  console.log('Image uploaded to:', uploadedPath);
+                }
+              }
+            }
+            
             console.log('Link data:', {
               title: link.title,
               url: link.url,
               description: link.description,
-              image: link.image,
+              image: finalImagePath,
               categoryId: realChildId 
             });
             
@@ -336,7 +843,7 @@ const handleSaveToDatabase = async () => {
                 title: link.title,
                 url: link.url,
                 description: link.description,
-                image: link.image,
+                image: finalImagePath,
                 categoryId: realChildId 
               })
             });
@@ -352,8 +859,21 @@ const handleSaveToDatabase = async () => {
       }
       
       console.log('Save completed, reloading data...');
-      // Перезагружаем данные из БД
-      await fetchCategories();
+      // Очищаем мапу файлов после успешного сохранения
+      setLinkFiles(new Map());
+      
+      // Сохраняем текущий выбор если он есть
+      if (selectedParentId && selectedChildId && selectedLinkId) {
+        const currentSelections = {
+          parentId: selectedParentId,
+          childId: selectedChildId,
+          linkId: selectedLinkId
+        };
+        await fetchCategoriesWithSelection(currentSelections);
+      } else {
+        // Если выбора нет, загружаем обычным способом
+        await fetchCategories();
+      }
       
     } catch (error) {
       console.error('Error saving to database:', error);
@@ -369,6 +889,7 @@ const handleSaveToDatabase = async () => {
       child.links.some(link => link.id.startsWith('temp-'))
     )
   );
+  const hasEditingChanges = isEditingLink;
 
   return (
     <div className="container">
@@ -386,10 +907,10 @@ const handleSaveToDatabase = async () => {
           </div>
         </div>
         <div 
-          className={`save_btn ${hasUnsavedChanges ? 'add' : ''}`}
-          onClick={hasUnsavedChanges ? handleAddToList : handleSaveToDatabase}
+          className={`save_btn ${hasUnsavedChanges || hasEditingChanges ? 'add' : ''} ${pendingDelete ? 'delete' : ''}`}
+          onClick={handleUniversalSave}
         >
-          {hasUnsavedChanges ? 'Добавить' : (hasUnsavedData ? 'Сохранить' : 'Сохранить')}
+          {pendingDelete ? 'Удалить' : (hasUnsavedChanges ? 'Добавить' : 'Сохранить')}
         </div> 
       </div>
 
@@ -397,15 +918,10 @@ const handleSaveToDatabase = async () => {
         
         {/* Родительские рубрики */}
         <div className="category_list">
-          <Image 
-            src="/add.svg" 
-            alt="" 
-            width={40} 
-            height={40} 
-            priority 
+          <div 
             className={`add_btn ${isAddingParent ? 'close' : ''}`}
             onClick={handleAddParent}
-          />
+          ></div>
           
           {isAddingParent && (
             <input 
@@ -423,22 +939,30 @@ const handleSaveToDatabase = async () => {
               className={`category_item ${selectedParentId === category.id ? 'active' : ''} ${category.id.startsWith('temp-') ? 'temp-item' : ''}`}
               onClick={() => setSelectedParentId(category.id)}
             >
-              {category.title}
+              <div className="category_item_text">
+                {category.title}
+              </div>
+              <Image 
+                src="/delete.svg" 
+                alt="Delete" 
+                width={20} 
+                height={20} 
+                className="delete"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteParent(category.id);
+                }}
+              />
             </div>
           ))}
         </div>
 
         {/* Дочерние рубрики */}
         <div className="inner_category">
-          <Image 
-            src="/add.svg" 
-            alt="" 
-            width={40} 
-            height={40} 
-            priority 
+          <div 
             className={`add_btn ${isAddingChild ? 'close' : ''}`}
             onClick={handleAddChild}
-          />
+          ></div>
           
           {isAddingChild && (
             <input 
@@ -456,22 +980,30 @@ const handleSaveToDatabase = async () => {
               className={`inner_category_item ${selectedChildId === childCategory.id ? 'active' : ''} ${childCategory.id.startsWith('temp-') ? 'temp-item' : ''}`}
               onClick={() => setSelectedChildId(childCategory.id)}
             >
-              {childCategory.title}
+              <div className="category_item_text">
+                {childCategory.title}
+              </div>
+              <Image 
+                src="/delete.svg" 
+                alt="Delete" 
+                width={20} 
+                height={20} 
+                className="delete"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteChild(childCategory.id);
+                }}
+              />
             </div>
           ))}
         </div>
 
         {/* Ссылки */}
         <div className="links_list">
-          <Image 
-            src="/add.svg" 
-            alt="" 
-            width={40} 
-            height={40} 
-            priority 
+          <div 
             className={`add_btn ${isAddingLink ? 'close' : ''}`}
             onClick={handleAddLink}
-          />
+          ></div>
           
           {selectedChild?.links.map((link) => (
             <div 
@@ -479,32 +1011,69 @@ const handleSaveToDatabase = async () => {
               className={`links_item ${selectedLinkId === link.id ? 'active' : ''} ${link.id.startsWith('temp-') ? 'temp-item' : ''}`}
               onClick={() => setSelectedLinkId(link.id)}
             >
-              {link.title}
+              <div className="category_item_text">
+                {link.title}
+              </div>
+              <Image 
+                src="/delete.svg" 
+                alt="Delete" 
+                width={20} 
+                height={20} 
+                className="delete"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteLink(link.id);
+                }}
+              />
             </div>
           ))}
         </div>
 
         {/* Детали ссылки */}
         <div className="link_info">
-          {(isAddingLink && !selectedFile) && (
-            <Image 
-              src="/add.svg" 
-              alt="" 
-              width={40} 
-              height={40} 
-              priority 
+          {/* Кнопка добавления изображения для новых ссылок или существующих без изображения */}
+          {((isAddingLink && !selectedFile) || (selectedLink && !selectedLink.image && !isAddingLink)) && (
+            <div 
               className={`add_btn_img ${isAddingImage ? 'close' : ''}`}
               onClick={handleAddImage}
-            />
+            ></div>
           )}
           
           {((selectedLink?.image && !isAddingLink) || (isAddingLink && selectedFile)) && (
             <div className="link_info_image">
+
+              {/* Показываем иконки управления для существующих ссылок и при добавлении новой с изображением */}
+              {((selectedLink?.image && !isAddingLink) || (isAddingLink && selectedFile)) && (
+                <div className="link_info_image_container">
+                  <Image 
+                    src="/changeimg.svg" 
+                    alt="Change Image" 
+                    width={40} 
+                    height={40} 
+                    priority 
+                    className={'changeimg'}
+                    onClick={isAddingLink ? handleAddImage : handleChangeImage}
+                  />
+
+                  <Image 
+                    src="/delimg.svg" 
+                    alt="Delete Image" 
+                    width={40} 
+                    height={40} 
+                    priority 
+                    className={'delimg'}
+                    onClick={isAddingLink ? handleRemoveNewImage : handleDeleteImage}
+                  />
+                </div>
+              )}
+
+                
               <img
                 src={isAddingLink && selectedFile ? URL.createObjectURL(selectedFile) : selectedLink?.image}
                 alt={selectedLink?.title || "Новое изображение"}
                 width="800"
                 height="600"
+                className={'linkimg'}
               />
             </div>
           )}
@@ -514,10 +1083,27 @@ const handleSaveToDatabase = async () => {
               <input 
                 type="text" 
                 placeholder='Заголовок' 
-                value={isAddingLink ? linkForm.title : (selectedLink?.title || '')}
+                value={
+                  isAddingLink 
+                    ? linkForm.title 
+                    : isEditingLink 
+                      ? editingLinkForm.title 
+                      : (selectedLink?.title || '')
+                }
                 onChange={(e) => {
                   if (isAddingLink) {
                     setLinkForm({...linkForm, title: e.target.value});
+                  } else if (isEditingLink) {
+                    setEditingLinkForm({...editingLinkForm, title: e.target.value});
+                  } else if (selectedLink) {
+                    // Начинаем редактирование при первом изменении
+                    startEditingLink();
+                    setEditingLinkForm({
+                      title: e.target.value,
+                      url: selectedLink.url,
+                      description: selectedLink.description || '',
+                      image: selectedLink.image || ''
+                    });
                   }
                 }}
                 className='title_input'
@@ -525,20 +1111,54 @@ const handleSaveToDatabase = async () => {
               <input 
                 type="text" 
                 placeholder='Ссылка' 
-                value={isAddingLink ? linkForm.url : (selectedLink?.url || '')}
+                value={
+                  isAddingLink 
+                    ? linkForm.url 
+                    : isEditingLink 
+                      ? editingLinkForm.url 
+                      : (selectedLink?.url || '')
+                }
                 onChange={(e) => {
                   if (isAddingLink) {
                     setLinkForm({...linkForm, url: e.target.value});
+                  } else if (isEditingLink) {
+                    setEditingLinkForm({...editingLinkForm, url: e.target.value});
+                  } else if (selectedLink) {
+                    // Начинаем редактирование при первом изменении
+                    startEditingLink();
+                    setEditingLinkForm({
+                      title: selectedLink.title,
+                      url: e.target.value,
+                      description: selectedLink.description || '',
+                      image: selectedLink.image || ''
+                    });
                   }
                 }}
                 className='link_input'
               />
               <textarea 
                 placeholder='Описание' 
-                value={isAddingLink ? linkForm.description : (selectedLink?.description || '')}
+                value={
+                  isAddingLink 
+                    ? linkForm.description 
+                    : isEditingLink 
+                      ? editingLinkForm.description 
+                      : (selectedLink?.description || '')
+                }
                 onChange={(e) => {
                   if (isAddingLink) {
                     setLinkForm({...linkForm, description: e.target.value});
+                  } else if (isEditingLink) {
+                    setEditingLinkForm({...editingLinkForm, description: e.target.value});
+                  } else if (selectedLink) {
+                    // Начинаем редактирование при первом изменении
+                    startEditingLink();
+                    setEditingLinkForm({
+                      title: selectedLink.title,
+                      url: selectedLink.url,
+                      description: e.target.value,
+                      image: selectedLink.image || ''
+                    });
                   }
                 }}
                 className='description_textarea'

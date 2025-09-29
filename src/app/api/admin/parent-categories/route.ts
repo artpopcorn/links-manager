@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
 export async function POST(request: Request) {
@@ -33,5 +33,30 @@ export async function POST(request: Request) {
       { error: 'Failed to create parent category' },
       { status: 500 }
     );
+  }
+}
+
+// Функция для удаления родительской категории (обрабатывает DELETE-запросы)
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Parent category ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Удаляем родительскую категорию (каскадное удаление удалит дочерние категории и ссылки)
+    await prisma.parentCategory.delete({
+      where: { id }
+    });
+    
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting parent category:', error);
+    return NextResponse.json({ error: 'Failed to delete parent category' }, { status: 500 });
   }
 }

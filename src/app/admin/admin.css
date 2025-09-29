@@ -71,9 +71,103 @@
   background: #fff;
 }
 
+.save_btn.delete {
+  background: #8e3131;
+  color: #fff;
+}
+
 .save_btn:hover {
   transform: scale(0.95);
   cursor: pointer;
+}
+
+/* CSS плюсики/крестики вместо SVG */
+.add_btn,
+.add_btn_img {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1/1;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add_btn::before,
+.add_btn::after,
+.add_btn_img::before,
+.add_btn_img::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: #fff;
+  transition: all 0.3s ease;
+}
+
+/* Горизонтальная линия */
+.add_btn::before,
+.add_btn_img::before {
+  width: 100%;
+  height: 1px;
+  transform: translate(-50%, -50%);
+}
+
+/* Вертикальная линия */
+.add_btn::after,
+.add_btn_img::after {
+  width: 1px;
+  height: 100%;
+  transform: translate(-50%, -50%);
+}
+
+/* Увеличенные плюсики для кнопки изображения */
+.add_btn_img::before {
+  width: 100%;
+  height: 1px;
+}
+
+.add_btn_img::after {
+  width: 1px;
+  height: 100%;
+}
+
+/* Состояние крестика (поворот на 45 градусов) */
+.add_btn.close::before,
+.add_btn_img.close::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.add_btn.close::after,
+.add_btn_img.close::after {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+/* Hover эффект */
+.add_btn:hover,
+.add_btn_img:hover {
+  transform: scale(0.9);
+}
+
+.add_btn:hover::before,
+.add_btn:hover::after,
+.add_btn_img:hover::before,
+.add_btn_img:hover::after {
+  background: #ccc;
+}
+
+/* Специальные стили для кнопок в списках */
+.category_list .add_btn,
+.inner_category .add_btn,
+.links_list .add_btn {
+  width: 100%;
+  min-height: 40px;
+  margin-bottom: 10px;
+}
+
+/* Стили для кнопки добавления изображения */
+.add_btn_img {
 }
 
 .island_admin_exit img {
@@ -143,4 +237,62 @@ input:focus {
 
 .close {
   rotate: 45deg;
+}
+
+.active {
+  color: #2fe094;
+}
+
+.links_item {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.category_item {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.inner_category_item {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.changeimg {
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.changeimg:hover {
+  transform: scale(0.95);
+  cursor: pointer;
+}
+
+.link_info_image_container {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.delimg {
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+
+  transition: all 0.3s ease;
+}
+
+.delimg:hover {
+  transform: scale(0.95);
+  cursor: pointer;
 }

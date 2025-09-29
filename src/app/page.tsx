@@ -169,6 +169,8 @@ export default function Home() {
           alt={selectedLink.title} 
           width={800} 
           height={600} 
+          className={'linkimg'}
+
         />
       </div>
     )}
