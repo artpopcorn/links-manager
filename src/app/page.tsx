@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Image from "next/image";
+import Loading from '@/components/Loading';
+
 
 interface Link {
   id: string;
@@ -104,12 +106,14 @@ export default function Home() {
     setSelectedLinkId(linkId);
   };
 
+
   if (loading) {
-    return <div>Загрузка...</div>;
+    return <Loading />;
   }
 
   return (
     <div className="container">
+
       <div className="container_links">
         
         {/* Родительские рубрики */}

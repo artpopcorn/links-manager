@@ -3,6 +3,9 @@
 import './admin.css';
 import Image from "next/image";
 import { useState, useEffect } from 'react';
+import Login from './login';
+import { checkAuth, logout } from './auth';
+import Loading from '@/components/Loading';
 
 interface Link {
   id: string;
@@ -25,6 +28,10 @@ interface ParentCategory {
 }
 
 export default function AdminPage() {
+  // Состояние авторизации
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthChecked, setIsAuthChecked] = useState<boolean>(false);
+
   // Состояние данных
   const [categories, setCategories] = useState<ParentCategory[]>([]);
   const [selectedParentId, setSelectedParentId] = useState<string>('');
@@ -36,6 +43,7 @@ export default function AdminPage() {
   const [isAddingChild, setIsAddingChild] = useState(false);
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [isAddingImage, setIsAddingImage] = useState(false);
+  const [isHoveringImageBtn, setIsHoveringImageBtn] = useState(false);
 
   // Состояние редактирования существующих ссылок
   const [isEditingLink, setIsEditingLink] = useState(false);
@@ -68,10 +76,38 @@ export default function AdminPage() {
   // Мапа для хранения файлов для каждой ссылки
   const [linkFiles, setLinkFiles] = useState<Map<string, File>>(new Map());
 
-  // Загрузка данных
+  // Проверка авторизации при загрузке
   useEffect(() => {
-    fetchCategories();
+    const checkAuthStatus = async () => {
+      const authStatus = await checkAuth();
+      setIsAuthenticated(authStatus);
+      setIsAuthChecked(true);
+      
+      if (authStatus) {
+        fetchCategories();
+      }
+    };
+
+    checkAuthStatus();
   }, []);
+
+  // Обработчик успешного входа
+  const handleLogin = (success: boolean) => {
+    if (success) {
+      setIsAuthenticated(true);
+      fetchCategories();
+    }
+  };
+
+  // Обработчик выхода
+  const handleLogout = async () => {
+    await logout();
+    setIsAuthenticated(false);
+    setCategories([]);
+    setSelectedParentId('');
+    setSelectedChildId('');
+    setSelectedLinkId('');
+  };
 
   // Обработчик Ctrl+V для вставки изображений
   useEffect(() => {
@@ -191,6 +227,78 @@ export default function AdminPage() {
       return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [pendingDelete]);
+
+  // Обработчик вставки изображения из буфера обмена (Ctrl+V)
+  useEffect(() => {
+    const handlePaste = async (event: ClipboardEvent) => {
+      if (!isHoveringImageBtn) return;
+
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          event.preventDefault();
+          const blob = items[i].getAsFile();
+          if (blob) {
+            // Обрабатываем как обычный файл
+            if (isAddingLink) {
+              // Для новых ссылок - сохраняем в локальное состояние
+              setSelectedFile(blob);
+              setIsAddingImage(true);
+              const imageUrl = URL.createObjectURL(blob);
+              setLinkForm({...linkForm, image: imageUrl});
+            } else if (selectedLink) {
+              // Для существующих ссылок - загружаем на сервер
+              try {
+                const formData = new FormData();
+                formData.append('file', blob);
+                const response = await fetch('/api/upload', {
+                  method: 'POST',
+                  body: formData,
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                  // Удаляем старое изображение если есть
+                  if (selectedLink.image) {
+                    await fetch(`/api/delete-file?path=${selectedLink.image}`, {
+                      method: 'DELETE',
+                    });
+                  }
+                  
+                  // Обновляем ссылку с новым изображением
+                  await fetch('/api/admin/links', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      id: selectedLink.id,
+                      image: result.filePath
+                    }),
+                  });
+                  
+                  // Перезагружаем категории
+                  await fetchCategoriesWithSelection({
+                    parentId: selectedParentId,
+                    childId: selectedChildId,
+                    linkId: selectedLinkId
+                  });
+                }
+              } catch (error) {
+                console.error('Error uploading image from clipboard:', error);
+              }
+            }
+            break;
+          }
+        }
+      }
+    };
+
+    if (isHoveringImageBtn) {
+      document.addEventListener('paste', handlePaste);
+      return () => document.removeEventListener('paste', handlePaste);
+    }
+  }, [isHoveringImageBtn, isAddingLink, selectedLink, linkForm, selectedParentId, selectedChildId, selectedLinkId]);
 
   // Обработчики добавления с переключением состояния
   const handleAddParent = () => {
@@ -891,19 +999,24 @@ const handleSaveToDatabase = async () => {
   );
   const hasEditingChanges = isEditingLink;
 
+  // Показываем лоадер пока проверяем авторизацию
+  if (!isAuthChecked) {
+    return <Loading />;
+  }
+
+  // Показываем форму входа если не авторизован
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  // Показываем интерфейс админки если авторизован
   return (
     <div className="container">
       
       <div className="island">
         <div className="island_admin">
-          <div className="island_admin_exit">
-            <Image src="/exit.svg" alt="" width={40} height={40} priority />
-          </div>
-          <div className="island_admin_profile">
-            <div className="island_admin_profile_img">
-              <img src="/admin.jpg" alt="" width={20} height={20} />
-            </div>
-            <div className="island_admin_profile_name">admin</div>
+          <div className="island_admin_exit" onClick={handleLogout}>
+            <Image src="/exit.svg" alt="Выход" width={40} height={40} priority />
           </div>
         </div>
         <div 
@@ -957,7 +1070,8 @@ const handleSaveToDatabase = async () => {
           ))}
         </div>
 
-        {/* Дочерние рубрики */}
+        {/* Дочерние рубрики - показываем только если есть выбранная родительская категория */}
+        {selectedParent && (
         <div className="inner_category">
           <div 
             className={`add_btn ${isAddingChild ? 'close' : ''}`}
@@ -997,8 +1111,10 @@ const handleSaveToDatabase = async () => {
             </div>
           ))}
         </div>
+        )}
 
-        {/* Ссылки */}
+        {/* Ссылки - показываем только если есть выбранная дочерняя категория */}
+        {selectedChild && (
         <div className="links_list">
           <div 
             className={`add_btn ${isAddingLink ? 'close' : ''}`}
@@ -1028,14 +1144,19 @@ const handleSaveToDatabase = async () => {
             </div>
           ))}
         </div>
+        )}
 
-        {/* Детали ссылки */}
+        {/* Детали ссылки - показываем только если есть выбранная или добавляемая ссылка */}
+        {(selectedLink || isAddingLink) && (
         <div className="link_info">
           {/* Кнопка добавления изображения для новых ссылок или существующих без изображения */}
           {((isAddingLink && !selectedFile) || (selectedLink && !selectedLink.image && !isAddingLink)) && (
             <div 
               className={`add_btn_img ${isAddingImage ? 'close' : ''}`}
               onClick={handleAddImage}
+              onMouseEnter={() => setIsHoveringImageBtn(true)}
+              onMouseLeave={() => setIsHoveringImageBtn(false)}
+              title="Нажмите для выбора файла или Ctrl+V для вставки из буфера обмена"
             ></div>
           )}
           
@@ -1166,6 +1287,7 @@ const handleSaveToDatabase = async () => {
             </div>
           )}
         </div>
+        )}
 
       </div>
     </div>
