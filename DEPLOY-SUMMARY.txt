@@ -1,0 +1,68 @@
+╔══════════════════════════════════════════════════════════════════╗
+║                 ГОТОВО К ДЕПЛОЮ НА links.saidd.ru                ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📦 ЧТО ПОДГОТОВЛЕНО:
+  ✅ Код приложения отправлен в GitHub (ветка Верстка)
+  ✅ SQL схема базы данных (init.sql)
+  ✅ Дамп данных для переноса (data_backup.sql)
+  ✅ Пример .env файла (env.production.example)
+  ✅ Скрипт создания админа (scripts/create-admin.js)
+  ✅ Документация по деплою (CHECKLIST.md)
+  ✅ Быстрое руководство (QUICK-DEPLOY.md)
+
+─────────────────────────────────────────────────────────────────
+
+📋 ЧТО НУЖНО СДЕЛАТЬ НА СЕРВЕРЕ (вкратце):
+
+1. Обновить код:
+   git pull origin Верстка
+
+2. Создать базу PostgreSQL:
+   sudo -u postgres psql
+   CREATE DATABASE links_manager;
+   CREATE USER links_user WITH PASSWORD 'strong_password';
+   GRANT ALL PRIVILEGES ON DATABASE links_manager TO links_user;
+
+3. Создать .env файл:
+   cp env.production.example .env
+   nano .env  # Отредактировать
+
+4. Применить схему БД:
+   psql -U links_user -d links_manager -f init.sql
+
+5. Установить и запустить:
+   npm install
+   npx prisma generate
+   node scripts/create-admin.js
+   npm run build
+   pm2 start npm --name "links-manager" -- start
+
+6. Настроить Nginx + SSL:
+   sudo certbot --nginx -d links.saidd.ru
+
+─────────────────────────────────────────────────────────────────
+
+📚 ДОКУМЕНТАЦИЯ:
+  • QUICK-DEPLOY.md   - самое быстрое руководство
+  • CHECKLIST.md      - подробный чеклист со всеми шагами
+  • DEPLOYMENT.md     - полная инструкция с объяснениями
+
+─────────────────────────────────────────────────────────────────
+
+🔐 УЧЕТНЫЕ ДАННЫЕ:
+  Admin login:    admin
+  Admin password: admin123 (смените после первого входа!)
+
+─────────────────────────────────────────────────────────────────
+
+🌐 РЕЗУЛЬТАТ:
+  Сайт:         https://links.saidd.ru
+  Админ-панель: https://links.saidd.ru/admin
+
+─────────────────────────────────────────────────────────────────
+
+💡 СЛЕДУЮЩИЙ ШАГ:
+   Откройте QUICK-DEPLOY.md и следуйте инструкциям!
+
+═══════════════════════════════════════════════════════════════════
