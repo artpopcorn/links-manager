@@ -86,3 +86,15 @@ pids
 
 # Optional REPL history
 .node_repl_history
+
+# Uploaded files (images, etc)
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# Database backups (не коммитим в git)
+*.sql
+!init.sql
+
+# Deployment
+.vercel
+pm2.config.js
