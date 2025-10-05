@@ -157,7 +157,7 @@ export default function AdminPage() {
       setIsAuthChecked(true);
       
       if (authStatus) {
-        fetchCategories();
+    fetchCategories();
       }
     };
 
@@ -304,38 +304,24 @@ export default function AdminPage() {
   // Обработчик вставки изображения из буфера обмена (Ctrl+V)
   useEffect(() => {
     const handlePaste = async (event: ClipboardEvent) => {
-      console.log('🔍 handlePaste triggered', {isHoveringImageBtn, isAddingLink, hasSelectedLink: !!selectedLink});
-      
-      if (!isHoveringImageBtn) {
-        console.log('❌ Not hovering image button');
-        return;
-      }
+      if (!isHoveringImageBtn) return;
 
       const items = event.clipboardData?.items;
-      if (!items) {
-        console.log('❌ No clipboard items');
-        return;
-      }
-
-      console.log('📋 Clipboard items:', items.length);
+      if (!items) return;
 
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
-          console.log('✅ Found image in clipboard');
           event.preventDefault();
           const blob = items[i].getAsFile();
           if (blob) {
-            console.log('📦 Got blob:', blob.size, 'bytes');
             // Обрабатываем как обычный файл
             if (isAddingLink) {
-              console.log('➕ Processing for NEW link');
               // Для новых ссылок - сохраняем в локальное состояние
               setSelectedFile(blob);
               setIsAddingImage(true);
               const imageUrl = URL.createObjectURL(blob);
               setLinkForm({...linkForm, image: imageUrl});
             } else if (selectedLink) {
-              console.log('✏️ Processing for EXISTING link:', selectedLink.id);
               // Для существующих ссылок - загружаем на сервер
               try {
                 const formData = new FormData();
@@ -429,7 +415,7 @@ export default function AdminPage() {
       setIsAddingImage(false);
       setSelectedFile(null);
       if (isAddingLink) {
-        setLinkForm({...linkForm, image: ''});
+      setLinkForm({...linkForm, image: ''});
       }
     } else {
       const input = document.createElement('input');
@@ -440,10 +426,10 @@ export default function AdminPage() {
         if (file) {
           if (isAddingLink) {
             // Для новых ссылок - сохраняем в локальное состояние
-            setSelectedFile(file);
-            setIsAddingImage(true);
-            const imageUrl = URL.createObjectURL(file);
-            setLinkForm({...linkForm, image: imageUrl});
+          setSelectedFile(file);
+          setIsAddingImage(true);
+          const imageUrl = URL.createObjectURL(file);
+          setLinkForm({...linkForm, image: imageUrl});
           } else if (selectedLink) {
             // Для существующих ссылок - сразу загружаем на сервер и обновляем БД
             try {
@@ -812,7 +798,7 @@ export default function AdminPage() {
           return category;
         })
       );
-      
+
       setIsAddingChild(false);
       setChildTitle('');
       setChildSlug('');
@@ -1165,8 +1151,8 @@ export default function AdminPage() {
     }
   };
 
-  // Сохранение в базу данных
-  const handleSaveToDatabase = async () => {
+// Сохранение в базу данных
+const handleSaveToDatabase = async () => {
     try {
       console.log('Starting save to database...');
       
@@ -1326,7 +1312,7 @@ export default function AdminPage() {
         await fetchCategoriesWithSelection(currentSelections);
       } else {
         // Если выбора нет, загружаем обычным способом
-        await fetchCategories();
+      await fetchCategories();
       }
       
     } catch (error) {
@@ -1395,10 +1381,10 @@ export default function AdminPage() {
           
           {isAddingParent && (
             <>
-              <input 
-                type="text" 
-                placeholder='Родительская рубрика' 
-                value={parentTitle}
+            <input 
+              type="text" 
+              placeholder='Родительская рубрика' 
+              value={parentTitle}
                 onChange={(e) => {
                   setParentTitle(e.target.value);
                   // Автоматически генерируем slug если поле пустое
@@ -1406,8 +1392,8 @@ export default function AdminPage() {
                     setParentSlug(transliterate(e.target.value));
                   }
                 }}
-                className='category_input'
-              />
+              className='category_input'
+            />
               <input 
                 type="text" 
                 placeholder='Ссылка (slug): ai' 
@@ -1427,15 +1413,15 @@ export default function AdminPage() {
               items={categories.map(cat => cat.id)}
               strategy={verticalListSortingStrategy}
             >
-              {categories.map((category) => (
+          {categories.map((category) => (
                 <SortableItem key={category.id} id={category.id}>
-              <div 
-                className={`category_item ${selectedParentId === category.id ? 'active' : ''} ${category.id.startsWith('temp-') ? 'temp-item' : ''}`}
+            <div 
+              className={`category_item ${selectedParentId === category.id ? 'active' : ''} ${category.id.startsWith('temp-') ? 'temp-item' : ''}`}
                 onClick={() => handleParentCategoryClick(category.id)}
-              >
+            >
                 <div className="category_item_text">
-                  {category.title}
-                </div>
+              {category.title}
+            </div>
 
                 <div className="edit_btn">
                   {!category.id.startsWith('temp-') && (
@@ -1501,10 +1487,10 @@ export default function AdminPage() {
           
           {isAddingChild && (
             <>
-              <input 
-                type="text" 
-                placeholder='Дочерняя рубрика' 
-                value={childTitle}
+            <input 
+              type="text" 
+              placeholder='Дочерняя рубрика' 
+              value={childTitle}
                 onChange={(e) => {
                   setChildTitle(e.target.value);
                   // Автоматически генерируем slug если поле пустое
@@ -1512,8 +1498,8 @@ export default function AdminPage() {
                     setChildSlug(transliterate(e.target.value));
                   }
                 }}
-                className='inner_category_input'
-              />
+              className='inner_category_input'
+            />
               <input 
                 type="text" 
                 placeholder='Ссылка (slug): text' 
@@ -1533,15 +1519,15 @@ export default function AdminPage() {
               items={selectedParent?.childCategories.map(child => child.id) || []}
               strategy={verticalListSortingStrategy}
             >
-              {selectedParent?.childCategories.map((childCategory) => (
+          {selectedParent?.childCategories.map((childCategory) => (
                 <SortableItem key={childCategory.id} id={childCategory.id}>
-              <div 
-                className={`inner_category_item ${selectedChildId === childCategory.id ? 'active' : ''} ${childCategory.id.startsWith('temp-') ? 'temp-item' : ''}`}
-                onClick={() => setSelectedChildId(childCategory.id)}
-              >
+            <div 
+              className={`inner_category_item ${selectedChildId === childCategory.id ? 'active' : ''} ${childCategory.id.startsWith('temp-') ? 'temp-item' : ''}`}
+              onClick={() => setSelectedChildId(childCategory.id)}
+            >
                 <div className="category_item_text">
-                  {childCategory.title}
-                </div>
+              {childCategory.title}
+            </div>
 
                 <div className="edit_btn">
                   {!childCategory.id.startsWith('temp-') && (
@@ -1615,15 +1601,15 @@ export default function AdminPage() {
               items={selectedChild?.links.map(link => link.id) || []}
               strategy={verticalListSortingStrategy}
             >
-              {selectedChild?.links.map((link) => (
+          {selectedChild?.links.map((link) => (
                 <SortableItem key={link.id} id={link.id}>
-                  <div 
-                    className={`links_item ${selectedLinkId === link.id ? 'active' : ''} ${link.id.startsWith('temp-') ? 'temp-item' : ''}`}
-                    onClick={() => setSelectedLinkId(link.id)}
-                  >
+            <div 
+              className={`links_item ${selectedLinkId === link.id ? 'active' : ''} ${link.id.startsWith('temp-') ? 'temp-item' : ''}`}
+              onClick={() => setSelectedLinkId(link.id)}
+            >
               <div className="category_item_text">
-                {link.title}
-              </div>
+              {link.title}
+            </div>
               <Image 
                 src="/delete.svg" 
                 alt="Delete" 
@@ -1663,12 +1649,12 @@ export default function AdminPage() {
               {/* Показываем иконки управления для существующих ссылок и при добавлении новой с изображением */}
               {((selectedLink?.image && !isAddingLink) || (isAddingLink && selectedFile)) && (
                 <div className="link_info_image_container">
-                  <Image 
+            <Image 
                     src="/changeimg.svg" 
                     alt="Change Image" 
-                    width={40} 
-                    height={40} 
-                    priority 
+              width={40} 
+              height={40} 
+              priority 
                     className={'changeimg'}
                     onClick={isAddingLink ? handleAddImage : handleChangeImage}
                   />
@@ -1714,7 +1700,7 @@ export default function AdminPage() {
                     if (!linkForm.slug) {
                       setLinkForm({...linkForm, title: e.target.value, slug: transliterate(e.target.value)});
                     } else {
-                      setLinkForm({...linkForm, title: e.target.value});
+                    setLinkForm({...linkForm, title: e.target.value});
                     }
                   } else if (isEditingLink) {
                     setEditingLinkForm({...editingLinkForm, title: e.target.value});
