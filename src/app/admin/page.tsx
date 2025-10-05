@@ -304,24 +304,38 @@ export default function AdminPage() {
   // Обработчик вставки изображения из буфера обмена (Ctrl+V)
   useEffect(() => {
     const handlePaste = async (event: ClipboardEvent) => {
-      if (!isHoveringImageBtn) return;
+      console.log('🔍 handlePaste triggered', {isHoveringImageBtn, isAddingLink, hasSelectedLink: !!selectedLink});
+      
+      if (!isHoveringImageBtn) {
+        console.log('❌ Not hovering image button');
+        return;
+      }
 
       const items = event.clipboardData?.items;
-      if (!items) return;
+      if (!items) {
+        console.log('❌ No clipboard items');
+        return;
+      }
+
+      console.log('📋 Clipboard items:', items.length);
 
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
+          console.log('✅ Found image in clipboard');
           event.preventDefault();
           const blob = items[i].getAsFile();
           if (blob) {
+            console.log('📦 Got blob:', blob.size, 'bytes');
             // Обрабатываем как обычный файл
             if (isAddingLink) {
+              console.log('➕ Processing for NEW link');
               // Для новых ссылок - сохраняем в локальное состояние
               setSelectedFile(blob);
               setIsAddingImage(true);
               const imageUrl = URL.createObjectURL(blob);
               setLinkForm({...linkForm, image: imageUrl});
             } else if (selectedLink) {
+              console.log('✏️ Processing for EXISTING link:', selectedLink.id);
               // Для существующих ссылок - загружаем на сервер
               try {
                 const formData = new FormData();
