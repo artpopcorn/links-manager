@@ -97,4 +97,4 @@ pids
 
 # Deployment
 .vercel
-pm2.config.js
+pm2.config.jsdata_export.sql
