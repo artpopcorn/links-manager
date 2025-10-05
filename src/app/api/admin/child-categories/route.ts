@@ -3,19 +3,14 @@ import { prisma } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
-    const { title, parentId } = await request.json();
+    const { title, parentId, slug } = await request.json();
     
-    if (!title || !parentId) {
+    if (!title || !parentId || !slug) {
       return NextResponse.json(
-        { error: 'Title and parentId are required' },
+        { error: 'Title, parentId and slug are required' },
         { status: 400 }
       );
     }
-
-    const slug = title.toLowerCase()
-      .replace(/[^a-zA-Z0-9а-яё\s]/g, '')
-      .replace(/\s+/g, '-')
-      .trim();
 
     const childCategory = await prisma.childCategory.create({
       data: {
@@ -33,6 +28,35 @@ export async function POST(request: Request) {
       { error: 'Failed to create child category' },
       { status: 500 }
     );
+  }
+}
+
+// Функция для обновления дочерней категории (обрабатывает PUT-запросы)
+export async function PUT(request: NextRequest) {
+  try {
+    const { id, title, slug, order } = await request.json();
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Child category ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const updateData: any = {};
+    if (title !== undefined) updateData.title = title;
+    if (slug !== undefined) updateData.slug = slug;
+    if (order !== undefined) updateData.order = order;
+    
+    const childCategory = await prisma.childCategory.update({
+      where: { id },
+      data: updateData
+    });
+    
+    return NextResponse.json({ success: true, childCategory });
+  } catch (error) {
+    console.error('Error updating child category:', error);
+    return NextResponse.json({ error: 'Failed to update child category' }, { status: 500 });
   }
 }
 

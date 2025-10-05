@@ -321,3 +321,7 @@ sudo chown -R $USER:$USER public/uploads
 ---
 
 **🎉 Готово! Ваше приложение работает!**
+
+
+
+

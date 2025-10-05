@@ -43,6 +43,7 @@ model Link {
   url           String
   description   String?
   image         String?
+  slug          String        @unique @default("")
   isActive      Boolean       @default(true)
   order         Int           @default(0)
   createdAt     DateTime      @default(now())

@@ -7,39 +7,34 @@ import { prisma } from '@/lib/db'
 export async function POST(request: NextRequest) {
   try {
     // Извлекаем данные из тела запроса (JSON)
-    const { title, url, description, image, categoryId }: { 
+    const { title, url, description, image, categoryId, slug }: { 
       title: string; 
       url: string; 
       description?: string;
       image?: string;
       categoryId: string;
+      slug: string;
     } = await request.json()
     
     // Проверяем обязательные поля
-    if (!title || !url || !categoryId) {
+    if (!title || !url || !categoryId || !slug) {
       return NextResponse.json(
-        { error: 'Title, url and categoryId are required' },
+        { error: 'Title, url, categoryId and slug are required' },
         { status: 400 }
       );
     }
     
-    // Подготавливаем данные для создания
-    const linkData: any = {
-      title,                         // Заголовок ссылки
-      url,                          // Адрес ссылки
-      description: description || '', // Описание ссылки
-      categoryId,                    // ID дочерней категории
-      order: 0                      // Порядок сортировки
-    };
-    
-    // Добавляем изображение, если оно есть
-    if (image) {
-      linkData.image = image;
-    }
-
     // Создаем новую запись в базе данных в таблице link
     const link = await prisma.link.create({
-      data: linkData
+      data: {
+        title,                         // Заголовок ссылки
+        url,                          // Адрес ссылки
+        description: description || '', // Описание ссылки
+        image: image || null,          // URL картинки
+        slug,                         // Slug для ЧПУ
+        categoryId,                    // ID дочерней категории
+        order: 0                      // Порядок сортировки
+      }
     })
     
     // Возвращаем успешный ответ с созданной ссылкой
@@ -57,6 +52,13 @@ export async function GET() {
   try {
     // Получаем все ссылки из базы данных с информацией о категориях
     const links = await prisma.link.findMany({
+      include: {
+        childCategory: {
+          include: {
+            parentCategory: true
+          }
+        }
+      },
       orderBy: {
         createdAt: 'desc' // Сортируем по дате создания (новые сверху)
       }
@@ -75,13 +77,15 @@ export async function GET() {
 // Функция для обновления ссылки (обрабатывает PUT-запросы)
 export async function PUT(request: NextRequest) {
   try {
-    const { id, title, url, description, image }: { 
+    const { id, title, url, description, image, slug, order }: { 
       id: string;
       title?: string; 
       url?: string; 
       description?: string;
-      image?: string | null;
-    } = await request.json();
+      image?: string;
+      slug?: string;
+      order?: number;
+    } = await request.json()
     
     if (!id) {
       return NextResponse.json(
@@ -90,23 +94,24 @@ export async function PUT(request: NextRequest) {
       );
     }
     
-    // Создаем объект с данными для обновления (только переданные поля)
+    // Создаем объект с полями для обновления
     const updateData: any = {};
     if (title !== undefined) updateData.title = title;
     if (url !== undefined) updateData.url = url;
     if (description !== undefined) updateData.description = description;
     if (image !== undefined) updateData.image = image;
+    if (slug !== undefined) updateData.slug = slug;
+    if (order !== undefined) updateData.order = order;
     
-    // Обновляем ссылку в базе данных
     const link = await prisma.link.update({
       where: { id },
       data: updateData
-    });
+    })
     
-    return NextResponse.json({ success: true, link });
+    return NextResponse.json({ success: true, link })
   } catch (error) {
-    console.error('Error updating link:', error);
-    return NextResponse.json({ error: 'Failed to update link' }, { status: 500 });
+    console.error('Error updating link:', error)
+    return NextResponse.json({ error: 'Failed to update link' }, { status: 500 })
   }
 }
 
@@ -123,7 +128,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
     
-    // Удаляем ссылку
     await prisma.link.delete({
       where: { id }
     });

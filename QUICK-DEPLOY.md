@@ -136,3 +136,7 @@ sudo systemctl status nginx
 ## 📞 Полная документация
 
 См. файл **CHECKLIST.md** для подробных инструкций.
+
+
+
+

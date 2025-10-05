@@ -121,3 +121,7 @@ echo "🔑 Логин: admin / Пароль: admin123"
 echo ""
 pm2 status
 pm2 logs links-manager --lines 10
+
+
+
+

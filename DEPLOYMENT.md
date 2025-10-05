@@ -205,3 +205,7 @@ mkdir -p public/uploads
 chmod 755 public/uploads
 chown -R www-data:www-data public/uploads  # Или ваш пользователь
 ```
+
+
+
+

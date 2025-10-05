@@ -82,3 +82,7 @@ echo "   npm run build"
 echo "   npm start"
 echo ""
 echo "📖 Подробная инструкция в файле DEPLOYMENT.md"
+
+
+
+

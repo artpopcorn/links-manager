@@ -180,3 +180,77 @@
 .login-input::placeholder {
   color: #999;
 }
+
+/* Стили для slug полей */
+.slug_input {
+  font-size: 14px;
+  color: #999;
+  opacity: 0.8;
+  margin-top: -10px;
+}
+
+.slug_input:focus {
+  opacity: 1;
+  color: #2fe094;
+}
+
+.slug_input_link {
+  border: none;
+  border-bottom: 1px solid #5e5e5e;
+  padding-bottom: 6px;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  color: #999;
+}
+
+.slug_input_link:focus {
+  border-bottom: 1px solid #2fe094;
+  color: #2fe094;
+}
+
+/* Стили для кнопок редактирования */
+.edit_btn {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.edit {
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.edit:hover {
+  opacity: 1;
+}
+
+/* Стили для формы редактирования */
+.edit_form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+/* Стили для drag & drop */
+.category_item,
+.inner_category_item,
+.links_item {
+  cursor: grab;
+  transition: opacity 0.2s;
+}
+
+.category_item:active,
+.inner_category_item:active,
+.links_item:active {
+  cursor: grabbing;
+}
+
+.edit_btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

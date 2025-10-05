@@ -2,10 +2,52 @@
 
 import './admin.css';
 import Image from "next/image";
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Login from './login';
 import { checkAuth, logout } from './auth';
 import Loading from '@/components/Loading';
+import { transliterate } from '@/lib/transliterate';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// Компонент для сортируемого элемента
+function SortableItem({ id, children }: { id: string; children: React.ReactNode }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
 
 interface Link {
   id: string;
@@ -13,17 +55,20 @@ interface Link {
   url: string;
   description: string;
   image: string;
+  slug: string;
 }
 
 interface ChildCategory {
   id: string;
   title: string;
+  slug: string;
   links: Link[];
 }
 
 interface ParentCategory {
   id: string;
   title: string;
+  slug: string;
   childCategories: ChildCategory[];
 }
 
@@ -51,7 +96,20 @@ export default function AdminPage() {
     title: '',
     url: '',
     description: '',
-    image: ''
+    image: '',
+    slug: ''
+  });
+
+  // Состояние редактирования категорий
+  const [editingParentId, setEditingParentId] = useState<string | null>(null);
+  const [editingParentForm, setEditingParentForm] = useState({
+    title: '',
+    slug: ''
+  });
+  const [editingChildId, setEditingChildId] = useState<string | null>(null);
+  const [editingChildForm, setEditingChildForm] = useState({
+    title: '',
+    slug: ''
   });
 
   // Состояние подтверждения удаления
@@ -63,18 +121,33 @@ export default function AdminPage() {
 
   // Состояние форм
   const [parentTitle, setParentTitle] = useState('');
+  const [parentSlug, setParentSlug] = useState('');
   const [childTitle, setChildTitle] = useState('');
+  const [childSlug, setChildSlug] = useState('');
   const [linkForm, setLinkForm] = useState({
     title: '',
     url: '',
     description: '',
-    image: ''
+    image: '',
+    slug: ''
   });
 
   // Состояние для загрузки файлов
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   // Мапа для хранения файлов для каждой ссылки
   const [linkFiles, setLinkFiles] = useState<Map<string, File>>(new Map());
+
+  // Настройка сенсоров для drag & drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Минимальное расстояние для начала перетаскивания
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Проверка авторизации при загрузке
   useEffect(() => {
@@ -305,9 +378,11 @@ export default function AdminPage() {
     if (isAddingParent) {
       setIsAddingParent(false);
       setParentTitle('');
+      setParentSlug('');
     } else {
       setIsAddingParent(true);
       setParentTitle('');
+      setParentSlug('');
     }
   };
 
@@ -315,9 +390,11 @@ export default function AdminPage() {
     if (isAddingChild) {
       setIsAddingChild(false);
       setChildTitle('');
+      setChildSlug('');
     } else {
       setIsAddingChild(true);
       setChildTitle('');
+      setChildSlug('');
     }
   };
 
@@ -326,10 +403,10 @@ export default function AdminPage() {
       setIsAddingLink(false);
       setIsAddingImage(false);
       setSelectedFile(null);
-      setLinkForm({ title: '', url: '', description: '', image: '' });
+      setLinkForm({ title: '', url: '', description: '', image: '', slug: '' });
     } else {
       setIsAddingLink(true);
-      setLinkForm({ title: '', url: '', description: '', image: '' });
+      setLinkForm({ title: '', url: '', description: '', image: '', slug: '' });
     }
   };
 
@@ -446,7 +523,8 @@ export default function AdminPage() {
         title: selectedLink.title,
         url: selectedLink.url,
         description: selectedLink.description || '',
-        image: selectedLink.image || ''
+        image: selectedLink.image || '',
+        slug: selectedLink.slug || ''
       });
     }
   };
@@ -458,7 +536,8 @@ export default function AdminPage() {
       title: '',
       url: '',
       description: '',
-      image: ''
+      image: '',
+      slug: ''
     });
   };
 
@@ -483,7 +562,8 @@ export default function AdminPage() {
           id: selectedLink.id,
           title: editingLinkForm.title,
           url: editingLinkForm.url,
-          description: editingLinkForm.description
+          description: editingLinkForm.description,
+          slug: editingLinkForm.slug
         })
       });
 
@@ -494,7 +574,8 @@ export default function AdminPage() {
           title: '',
           url: '',
           description: '',
-          image: ''
+          image: '',
+          slug: ''
         });
         // Перезагружаем данные с сохранением выбора
         await fetchCategoriesWithSelection(currentSelections);
@@ -503,6 +584,96 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Error updating link:', error);
+    }
+  };
+
+  // Функции для редактирования родительских категорий
+  const startEditingParent = (parentId: string) => {
+    const parent = categories.find(cat => cat.id === parentId);
+    if (parent && !parent.id.startsWith('temp-')) {
+      setEditingParentId(parentId);
+      setEditingParentForm({
+        title: parent.title,
+        slug: parent.slug
+      });
+    }
+  };
+
+  const cancelEditingParent = () => {
+    setEditingParentId(null);
+    setEditingParentForm({ title: '', slug: '' });
+  };
+
+  const saveEditingParent = async () => {
+    if (!editingParentId || !editingParentForm.title.trim() || !editingParentForm.slug.trim()) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/parent-categories`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingParentId,
+          title: editingParentForm.title,
+          slug: editingParentForm.slug
+        })
+      });
+
+      if (response.ok) {
+        setEditingParentId(null);
+        setEditingParentForm({ title: '', slug: '' });
+        console.log('Parent category updated successfully');
+      } else {
+        console.error('Failed to update parent category');
+      }
+    } catch (error) {
+      console.error('Error updating parent category:', error);
+    }
+  };
+
+  // Функции для редактирования дочерних категорий
+  const startEditingChild = (childId: string) => {
+    const child = selectedParent?.childCategories.find(c => c.id === childId);
+    if (child && !child.id.startsWith('temp-')) {
+      setEditingChildId(childId);
+      setEditingChildForm({
+        title: child.title,
+        slug: child.slug
+      });
+    }
+  };
+
+  const cancelEditingChild = () => {
+    setEditingChildId(null);
+    setEditingChildForm({ title: '', slug: '' });
+  };
+
+  const saveEditingChild = async () => {
+    if (!editingChildId || !editingChildForm.title.trim() || !editingChildForm.slug.trim()) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/child-categories`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingChildId,
+          title: editingChildForm.title,
+          slug: editingChildForm.slug
+        })
+      });
+
+      if (response.ok) {
+        setEditingChildId(null);
+        setEditingChildForm({ title: '', slug: '' });
+        console.log('Child category updated successfully');
+      } else {
+        console.error('Failed to update child category');
+      }
+    } catch (error) {
+      console.error('Error updating child category:', error);
     }
   };
 
@@ -565,6 +736,29 @@ export default function AdminPage() {
     });
   };
 
+  // Обработчик клика по родительской категории
+  const handleParentCategoryClick = (categoryId: string) => {
+    setSelectedParentId(categoryId);
+    
+    // Находим выбранную родительскую категорию
+    const parent = categories.find(cat => cat.id === categoryId);
+    
+    // Автоматически выбираем первую дочернюю категорию
+    if (parent && parent.childCategories.length > 0) {
+      setSelectedChildId(parent.childCategories[0].id);
+      
+      // Автоматически выбираем первую ссылку в первой дочерней категории
+      if (parent.childCategories[0].links.length > 0) {
+        setSelectedLinkId(parent.childCategories[0].links[0].id);
+      } else {
+        setSelectedLinkId('');
+      }
+    } else {
+      setSelectedChildId('');
+      setSelectedLinkId('');
+    }
+  };
+
   // Добавление в локальный список (показать в интерфейсе)
   const handleAddToList = () => {
     // Добавление родительской категории
@@ -572,12 +766,14 @@ export default function AdminPage() {
       const tempParent: ParentCategory = {
         id: 'temp-parent-' + Date.now(),
         title: parentTitle,
+        slug: parentSlug || transliterate(parentTitle),
         childCategories: []
       };
       
       setCategories(prev => [...prev, tempParent]);
       setIsAddingParent(false);
       setParentTitle('');
+      setParentSlug('');
       setSelectedParentId(tempParent.id);
       return;
     }
@@ -587,6 +783,7 @@ export default function AdminPage() {
       const tempChild: ChildCategory = {
         id: 'temp-child-' + Date.now(),
         title: childTitle,
+        slug: childSlug || transliterate(childTitle),
         links: []
       };
 
@@ -601,9 +798,10 @@ export default function AdminPage() {
           return category;
         })
       );
-
+      
       setIsAddingChild(false);
       setChildTitle('');
+      setChildSlug('');
       setSelectedChildId(tempChild.id);
       return;
     }
@@ -616,7 +814,8 @@ export default function AdminPage() {
         title: linkForm.title,
         url: linkForm.url,
         description: linkForm.description,
-        image: linkForm.image
+        image: linkForm.image,
+        slug: linkForm.slug || transliterate(linkForm.title)
       };
 
       // Сохраняем файл для этой ссылки, если он есть
@@ -647,7 +846,7 @@ export default function AdminPage() {
       setIsAddingLink(false);
       setIsAddingImage(false);
       setSelectedFile(null);
-      setLinkForm({ title: '', url: '', description: '', image: '' });
+      setLinkForm({ title: '', url: '', description: '', image: '', slug: '' });
       setSelectedLinkId(tempLink.id);
       return;
     }
@@ -811,6 +1010,105 @@ export default function AdminPage() {
     }
   };
 
+  // Обработчики drag & drop
+  const handleDragEndParent = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = categories.findIndex((cat) => cat.id === active.id);
+      const newIndex = categories.findIndex((cat) => cat.id === over.id);
+
+      const newCategories = arrayMove(categories, oldIndex, newIndex);
+      setCategories(newCategories);
+
+      // Обновляем order в базе данных
+      try {
+        await Promise.all(
+          newCategories.map((cat, index) =>
+            fetch('/api/admin/parent-categories', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: cat.id, order: index }),
+            })
+          )
+        );
+      } catch (error) {
+        console.error('Error updating parent categories order:', error);
+      }
+    }
+  };
+
+  const handleDragEndChild = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id && selectedParent) {
+      const oldIndex = selectedParent.childCategories.findIndex((cat) => cat.id === active.id);
+      const newIndex = selectedParent.childCategories.findIndex((cat) => cat.id === over.id);
+
+      const newChildCategories = arrayMove(selectedParent.childCategories, oldIndex, newIndex);
+      
+      setCategories(categories.map(cat => 
+        cat.id === selectedParentId
+          ? { ...cat, childCategories: newChildCategories }
+          : cat
+      ));
+
+      // Обновляем order в базе данных
+      try {
+        await Promise.all(
+          newChildCategories.map((child, index) =>
+            fetch('/api/admin/child-categories', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: child.id, order: index }),
+            })
+          )
+        );
+      } catch (error) {
+        console.error('Error updating child categories order:', error);
+      }
+    }
+  };
+
+  const handleDragEndLink = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id && selectedChild) {
+      const oldIndex = selectedChild.links.findIndex((link) => link.id === active.id);
+      const newIndex = selectedChild.links.findIndex((link) => link.id === over.id);
+
+      const newLinks = arrayMove(selectedChild.links, oldIndex, newIndex);
+      
+      setCategories(categories.map(cat => 
+        cat.id === selectedParentId
+          ? {
+              ...cat,
+              childCategories: cat.childCategories.map(child =>
+                child.id === selectedChildId
+                  ? { ...child, links: newLinks }
+                  : child
+              )
+            }
+          : cat
+      ));
+
+      // Обновляем order в базе данных
+      try {
+        await Promise.all(
+          newLinks.map((link, index) =>
+            fetch('/api/admin/links', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: link.id, order: index }),
+            })
+          )
+        );
+      } catch (error) {
+        console.error('Error updating links order:', error);
+      }
+    }
+  };
+
   // Универсальная функция сохранения
   const handleUniversalSave = async () => {
     // Если есть ожидающее удаление - выполняем его
@@ -825,9 +1123,26 @@ export default function AdminPage() {
       return handleAddToList();
     }
     
-    // Если редактируем существующую ссылку
+    // Если редактируем категории или ссылку
     if (hasEditingChanges) {
-      return saveEditingLink();
+      if (editingParentId) {
+        await saveEditingParent();
+      }
+      if (editingChildId) {
+        await saveEditingChild();
+      }
+      if (isEditingLink) {
+        await saveEditingLink();
+      }
+      
+      // Перезагружаем данные после сохранения
+      const currentSelections = {
+        parentId: selectedParentId,
+        childId: selectedChildId,
+        linkId: selectedLinkId
+      };
+      await fetchCategoriesWithSelection(currentSelections);
+      return;
     }
     
     // Если есть несохраненные данные в БД
@@ -837,9 +1152,17 @@ export default function AdminPage() {
   };
 
   // Сохранение в базу данных
-const handleSaveToDatabase = async () => {
+  const handleSaveToDatabase = async () => {
     try {
       console.log('Starting save to database...');
+      
+      // Сначала сохраняем редактируемые категории
+      if (editingParentId) {
+        await saveEditingParent();
+      }
+      if (editingChildId) {
+        await saveEditingChild();
+      }
       
       // Мапа для сопоставления временных ID с реальными
       const idMap = new Map<string, string>();
@@ -853,7 +1176,10 @@ const handleSaveToDatabase = async () => {
         const response = await fetch('/api/admin/parent-categories', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: parent.title })
+          body: JSON.stringify({ 
+            title: parent.title,
+            slug: parent.slug
+          })
         });
         
         if (response.ok) {
@@ -888,7 +1214,8 @@ const handleSaveToDatabase = async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
               title: child.title, 
-              parentId: realParentId 
+              parentId: realParentId,
+              slug: child.slug
             })
           });
           
@@ -936,12 +1263,16 @@ const handleSaveToDatabase = async () => {
               }
             }
             
+            // Убеждаемся, что slug не пустой
+            const linkSlug = link.slug || transliterate(link.title);
+            
             console.log('Link data:', {
               title: link.title,
               url: link.url,
               description: link.description,
               image: finalImagePath,
-              categoryId: realChildId 
+              categoryId: realChildId,
+              slug: linkSlug
             });
             
             const response = await fetch('/api/admin/links', {
@@ -952,7 +1283,8 @@ const handleSaveToDatabase = async () => {
                 url: link.url,
                 description: link.description,
                 image: finalImagePath,
-                categoryId: realChildId 
+                categoryId: realChildId,
+                slug: linkSlug
               })
             });
             
@@ -990,6 +1322,7 @@ const handleSaveToDatabase = async () => {
 
   // Определяем наличие изменений
   const hasUnsavedChanges = isAddingParent || isAddingChild || isAddingLink;
+  const hasEditingChanges = editingParentId !== null || editingChildId !== null || isEditingLink;
   const hasUnsavedData = categories.some(cat => 
     cat.id.startsWith('temp-') || 
     cat.childCategories.some(child => 
@@ -997,7 +1330,6 @@ const handleSaveToDatabase = async () => {
       child.links.some(link => link.id.startsWith('temp-'))
     )
   );
-  const hasEditingChanges = isEditingLink;
 
   // Показываем лоадер пока проверяем авторизацию
   if (!isAuthChecked) {
@@ -1023,11 +1355,22 @@ const handleSaveToDatabase = async () => {
           className={`save_btn ${hasUnsavedChanges || hasEditingChanges ? 'add' : ''} ${pendingDelete ? 'delete' : ''}`}
           onClick={handleUniversalSave}
         >
-          {pendingDelete ? 'Удалить' : (hasUnsavedChanges ? 'Добавить' : 'Сохранить')}
+          {pendingDelete ? 'Удалить' : (hasUnsavedChanges ? 'Добавить' : (hasEditingChanges ? 'Сохранить изменения' : 'Сохранить'))}
         </div> 
       </div>
 
-      <div className="container_links">
+      <div 
+        className="container_links"
+        onClick={() => {
+          // Закрываем формы редактирования при клике вне них
+          if (editingParentId) {
+            cancelEditingParent();
+          }
+          if (editingChildId) {
+            cancelEditingChild();
+          }
+        }}
+      >
         
         {/* Родительские рубрики */}
         <div className="category_list">
@@ -1037,37 +1380,101 @@ const handleSaveToDatabase = async () => {
           ></div>
           
           {isAddingParent && (
-            <input 
-              type="text" 
-              placeholder='Родительская рубрика' 
-              value={parentTitle}
-              onChange={(e) => setParentTitle(e.target.value)}
-              className='category_input'
-            />
+            <>
+              <input 
+                type="text" 
+                placeholder='Родительская рубрика' 
+                value={parentTitle}
+                onChange={(e) => {
+                  setParentTitle(e.target.value);
+                  // Автоматически генерируем slug если поле пустое
+                  if (!parentSlug) {
+                    setParentSlug(transliterate(e.target.value));
+                  }
+                }}
+                className='category_input'
+              />
+              <input 
+                type="text" 
+                placeholder='Ссылка (slug): ai' 
+                value={parentSlug}
+                onChange={(e) => setParentSlug(e.target.value)}
+                className='category_input slug_input'
+              />
+            </>
           )}
           
-          {categories.map((category) => (
-            <div 
-              key={category.id} 
-              className={`category_item ${selectedParentId === category.id ? 'active' : ''} ${category.id.startsWith('temp-') ? 'temp-item' : ''}`}
-              onClick={() => setSelectedParentId(category.id)}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEndParent}
+          >
+            <SortableContext
+              items={categories.map(cat => cat.id)}
+              strategy={verticalListSortingStrategy}
             >
-              <div className="category_item_text">
-                {category.title}
+              {categories.map((category) => (
+                <SortableItem key={category.id} id={category.id}>
+              <div 
+                className={`category_item ${selectedParentId === category.id ? 'active' : ''} ${category.id.startsWith('temp-') ? 'temp-item' : ''}`}
+                onClick={() => handleParentCategoryClick(category.id)}
+              >
+                <div className="category_item_text">
+                  {category.title}
+                </div>
+
+                <div className="edit_btn">
+                  {!category.id.startsWith('temp-') && (
+                    <Image 
+                      src="/edit.svg" 
+                      alt="Edit" 
+                      width={20} 
+                      height={20} 
+                      className="edit"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEditingParent(category.id);
+                      }}
+                    />
+                  )}
+
+                  <Image 
+                    src="/delete.svg" 
+                    alt="Delete" 
+                    width={20} 
+                    height={20} 
+                    className="delete"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteParent(category.id);
+                    }}
+                  />
+                </div>
               </div>
-              <Image 
-                src="/delete.svg" 
-                alt="Delete" 
-                width={20} 
-                height={20} 
-                className="delete"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteParent(category.id);
-                }}
-              />
-            </div>
-          ))}
+              
+              {/* Форма редактирования родительской категории */}
+              {editingParentId === category.id && (
+                <div className="edit_form" onClick={(e) => e.stopPropagation()}>
+                  <input 
+                    type="text" 
+                    placeholder='Название категории' 
+                    value={editingParentForm.title}
+                    onChange={(e) => setEditingParentForm({...editingParentForm, title: e.target.value})}
+                    className='category_input'
+                  />
+                  <input 
+                    type="text" 
+                    placeholder='Ссылка (slug)' 
+                    value={editingParentForm.slug}
+                    onChange={(e) => setEditingParentForm({...editingParentForm, slug: e.target.value})}
+                    className='category_input slug_input'
+                  />
+                </div>
+              )}
+                </SortableItem>
+              ))}
+            </SortableContext>
+          </DndContext>
         </div>
 
         {/* Дочерние рубрики - показываем только если есть выбранная родительская категория */}
@@ -1079,37 +1486,101 @@ const handleSaveToDatabase = async () => {
           ></div>
           
           {isAddingChild && (
-            <input 
-              type="text" 
-              placeholder='Дочерняя рубрика' 
-              value={childTitle}
-              onChange={(e) => setChildTitle(e.target.value)}
-              className='inner_category_input'
-            />
+            <>
+              <input 
+                type="text" 
+                placeholder='Дочерняя рубрика' 
+                value={childTitle}
+                onChange={(e) => {
+                  setChildTitle(e.target.value);
+                  // Автоматически генерируем slug если поле пустое
+                  if (!childSlug) {
+                    setChildSlug(transliterate(e.target.value));
+                  }
+                }}
+                className='inner_category_input'
+              />
+              <input 
+                type="text" 
+                placeholder='Ссылка (slug): text' 
+                value={childSlug}
+                onChange={(e) => setChildSlug(e.target.value)}
+                className='inner_category_input slug_input'
+              />
+            </>
           )}
           
-          {selectedParent?.childCategories.map((childCategory) => (
-            <div 
-              key={childCategory.id} 
-              className={`inner_category_item ${selectedChildId === childCategory.id ? 'active' : ''} ${childCategory.id.startsWith('temp-') ? 'temp-item' : ''}`}
-              onClick={() => setSelectedChildId(childCategory.id)}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEndChild}
+          >
+            <SortableContext
+              items={selectedParent?.childCategories.map(child => child.id) || []}
+              strategy={verticalListSortingStrategy}
             >
-              <div className="category_item_text">
-                {childCategory.title}
+              {selectedParent?.childCategories.map((childCategory) => (
+                <SortableItem key={childCategory.id} id={childCategory.id}>
+              <div 
+                className={`inner_category_item ${selectedChildId === childCategory.id ? 'active' : ''} ${childCategory.id.startsWith('temp-') ? 'temp-item' : ''}`}
+                onClick={() => setSelectedChildId(childCategory.id)}
+              >
+                <div className="category_item_text">
+                  {childCategory.title}
+                </div>
+
+                <div className="edit_btn">
+                  {!childCategory.id.startsWith('temp-') && (
+                    <Image 
+                      src="/edit.svg" 
+                      alt="Edit" 
+                      width={20} 
+                      height={20} 
+                      className="edit"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEditingChild(childCategory.id);
+                      }}
+                    />
+                  )}
+
+                  <Image 
+                    src="/delete.svg" 
+                    alt="Delete" 
+                    width={20} 
+                    height={20} 
+                    className="delete"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteChild(childCategory.id);
+                    }}
+                  />
+                </div>
               </div>
-              <Image 
-                src="/delete.svg" 
-                alt="Delete" 
-                width={20} 
-                height={20} 
-                className="delete"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteChild(childCategory.id);
-                }}
-              />
-            </div>
-          ))}
+              
+              {/* Форма редактирования дочерней категории */}
+              {editingChildId === childCategory.id && (
+                <div className="edit_form" onClick={(e) => e.stopPropagation()}>
+                  <input 
+                    type="text" 
+                    placeholder='Название категории' 
+                    value={editingChildForm.title}
+                    onChange={(e) => setEditingChildForm({...editingChildForm, title: e.target.value})}
+                    className='inner_category_input'
+                  />
+                  <input 
+                    type="text" 
+                    placeholder='Ссылка (slug)' 
+                    value={editingChildForm.slug}
+                    onChange={(e) => setEditingChildForm({...editingChildForm, slug: e.target.value})}
+                    className='inner_category_input slug_input'
+                  />
+                </div>
+              )}
+                </SortableItem>
+              ))}
+            </SortableContext>
+          </DndContext>
         </div>
         )}
 
@@ -1121,12 +1592,21 @@ const handleSaveToDatabase = async () => {
             onClick={handleAddLink}
           ></div>
           
-          {selectedChild?.links.map((link) => (
-            <div 
-              key={link.id} 
-              className={`links_item ${selectedLinkId === link.id ? 'active' : ''} ${link.id.startsWith('temp-') ? 'temp-item' : ''}`}
-              onClick={() => setSelectedLinkId(link.id)}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEndLink}
+          >
+            <SortableContext
+              items={selectedChild?.links.map(link => link.id) || []}
+              strategy={verticalListSortingStrategy}
             >
+              {selectedChild?.links.map((link) => (
+                <SortableItem key={link.id} id={link.id}>
+                  <div 
+                    className={`links_item ${selectedLinkId === link.id ? 'active' : ''} ${link.id.startsWith('temp-') ? 'temp-item' : ''}`}
+                    onClick={() => setSelectedLinkId(link.id)}
+                  >
               <div className="category_item_text">
                 {link.title}
               </div>
@@ -1141,8 +1621,11 @@ const handleSaveToDatabase = async () => {
                   handleDeleteLink(link.id);
                 }}
               />
-            </div>
-          ))}
+                  </div>
+                </SortableItem>
+              ))}
+            </SortableContext>
+          </DndContext>
         </div>
         )}
 
@@ -1213,7 +1696,12 @@ const handleSaveToDatabase = async () => {
                 }
                 onChange={(e) => {
                   if (isAddingLink) {
-                    setLinkForm({...linkForm, title: e.target.value});
+                    // Автоматически генерируем slug если поле пустое
+                    if (!linkForm.slug) {
+                      setLinkForm({...linkForm, title: e.target.value, slug: transliterate(e.target.value)});
+                    } else {
+                      setLinkForm({...linkForm, title: e.target.value});
+                    }
                   } else if (isEditingLink) {
                     setEditingLinkForm({...editingLinkForm, title: e.target.value});
                   } else if (selectedLink) {
@@ -1223,7 +1711,8 @@ const handleSaveToDatabase = async () => {
                       title: e.target.value,
                       url: selectedLink.url,
                       description: selectedLink.description || '',
-                      image: selectedLink.image || ''
+                      image: selectedLink.image || '',
+                      slug: selectedLink.slug || ''
                     });
                   }
                 }}
@@ -1251,7 +1740,8 @@ const handleSaveToDatabase = async () => {
                       title: selectedLink.title,
                       url: e.target.value,
                       description: selectedLink.description || '',
-                      image: selectedLink.image || ''
+                      image: selectedLink.image || '',
+                      slug: selectedLink.slug || ''
                     });
                   }
                 }}
@@ -1278,11 +1768,41 @@ const handleSaveToDatabase = async () => {
                       title: selectedLink.title,
                       url: selectedLink.url,
                       description: e.target.value,
-                      image: selectedLink.image || ''
+                      image: selectedLink.image || '',
+                      slug: selectedLink.slug || ''
                     });
                   }
                 }}
                 className='description_textarea'
+              />
+              <input 
+                type="text" 
+                placeholder='Ссылка (slug): chatgpt' 
+                value={
+                  isAddingLink 
+                    ? linkForm.slug 
+                    : isEditingLink 
+                      ? editingLinkForm.slug 
+                      : (selectedLink?.slug || '')
+                }
+                onChange={(e) => {
+                  if (isAddingLink) {
+                    setLinkForm({...linkForm, slug: e.target.value});
+                  } else if (isEditingLink) {
+                    setEditingLinkForm({...editingLinkForm, slug: e.target.value});
+                  } else if (selectedLink) {
+                    // Начинаем редактирование при первом изменении
+                    startEditingLink();
+                    setEditingLinkForm({
+                      title: selectedLink.title,
+                      url: selectedLink.url,
+                      description: selectedLink.description || '',
+                      image: selectedLink.image || '',
+                      slug: e.target.value
+                    });
+                  }
+                }}
+                className='slug_input_link'
               />
             </div>
           )}
