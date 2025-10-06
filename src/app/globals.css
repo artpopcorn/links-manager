@@ -127,6 +127,7 @@ h2 {
   background: rgba(54, 54, 54, 0.5);
   backdrop-filter: blur(5px);
   padding: 10px;
+  z-index: 1000;
 }
 
 .island_admin {
@@ -315,4 +316,14 @@ input:focus {
   justify-content: center;
   align-items: center;
   height: 100vh;
+}
+
+@media (max-width: 980px) {
+  .container_links {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    height: auto;
+    padding: 20px;
+    display: grid;
+  }
 }
