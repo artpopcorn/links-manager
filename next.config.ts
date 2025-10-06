@@ -11,9 +11,6 @@ const nextConfig: NextConfig = {
     // your project has TypeScript errors.
     ignoreBuildErrors: true,
   },
-  devIndicators: {
-    appIsrStatus: false,
-  },
 };
 
 export default nextConfig;
