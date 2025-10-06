@@ -20,7 +20,12 @@ export const metadata: Metadata = {
   title: "Links — Полезные ссылки",
   description: "Удобная коллекция полезных ссылок, организованная по категориям. Быстрый доступ к нужным ресурсам.",
   icons: {
-    icon: "/favicon.png",
+    icon: [
+      {
+        url: "/favicon.png",
+        type: "image/png",
+      }
+    ],
   },
 };
 
