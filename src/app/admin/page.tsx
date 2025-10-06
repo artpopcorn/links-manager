@@ -7,6 +7,7 @@ import Login from './login';
 import { checkAuth, logout } from './auth';
 import Loading from '@/components/Loading';
 import { transliterate } from '@/lib/transliterate';
+import { compressImage, formatFileSize } from '@/lib/imageCompression';
 import {
   DndContext,
   closestCenter,
@@ -316,16 +317,36 @@ export default function AdminPage() {
           if (blob) {
             // Обрабатываем как обычный файл
             if (isAddingLink) {
-              // Для новых ссылок - сохраняем в локальное состояние
-              setSelectedFile(blob);
-              setIsAddingImage(true);
-              const imageUrl = URL.createObjectURL(blob);
-              setLinkForm({...linkForm, image: imageUrl});
-            } else if (selectedLink) {
-              // Для существующих ссылок - загружаем на сервер
+              // Для новых ссылок - сжимаем и сохраняем в локальное состояние
               try {
+                const compressedBlob = await compressImage(blob, {
+                  maxWidth: 1200,
+                  maxHeight: 1200,
+                  quality: 0.85,
+                  maxSizeMB: 1,
+                });
+                setSelectedFile(compressedBlob);
+                setIsAddingImage(true);
+                const imageUrl = URL.createObjectURL(compressedBlob);
+                setLinkForm({...linkForm, image: imageUrl});
+              } catch (error) {
+                console.error('Error compressing image:', error);
+              }
+            } else if (selectedLink) {
+              // Для существующих ссылок - сжимаем и загружаем на сервер
+              try {
+                const compressedBlob = await compressImage(blob, {
+                  maxWidth: 1200,
+                  maxHeight: 1200,
+                  quality: 0.85,
+                  maxSizeMB: 1,
+                });
+                
                 const formData = new FormData();
-                formData.append('file', blob);
+                const compressedFile = new File([compressedBlob], 'pasted-image.jpg', {
+                  type: 'image/jpeg',
+                });
+                formData.append('file', compressedFile);
                 const response = await fetch('/api/upload', {
                   method: 'POST',
                   body: formData,
@@ -986,11 +1007,30 @@ export default function AdminPage() {
     });
   };
 
-  // Функция для загрузки изображения на сервер
+  // Функция для загрузки изображения на сервер (с автоматическим сжатием)
   const uploadImage = async (file: File): Promise<string | null> => {
     try {
+      const originalSize = formatFileSize(file.size);
+      console.log(`📷 Исходный размер: ${originalSize}`);
+      
+      // Сжимаем изображение перед загрузкой
+      const compressedBlob = await compressImage(file, {
+        maxWidth: 1200,
+        maxHeight: 1200,
+        quality: 0.85,
+        maxSizeMB: 1,
+      });
+      
+      const compressedSize = formatFileSize(compressedBlob.size);
+      const savings = ((1 - compressedBlob.size / file.size) * 100).toFixed(0);
+      console.log(`✅ Сжатый размер: ${compressedSize} (экономия ${savings}%)`);
+      
       const formData = new FormData();
-      formData.append('file', file);
+      // Создаем новый File из сжатого Blob с оригинальным именем
+      const compressedFile = new File([compressedBlob], file.name, {
+        type: 'image/jpeg',
+      });
+      formData.append('file', compressedFile);
       
       const response = await fetch('/api/upload', {
         method: 'POST',
