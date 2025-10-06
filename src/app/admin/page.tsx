@@ -174,7 +174,15 @@ export default function AdminPage() {
   };
 
   // Обработчик выхода
-  const handleLogout = async () => {
+  const handleLogout = async (event: React.MouseEvent<HTMLDivElement>) => {
+    const button = event.currentTarget;
+    
+    // Добавляем анимацию тряски
+    button.classList.add('shaking');
+    setTimeout(() => {
+      button.classList.remove('shaking');
+    }, 300);
+    
     await logout();
     setIsAuthenticated(false);
     setCategories([]);
@@ -325,7 +333,12 @@ export default function AdminPage() {
                   quality: 0.85,
                   maxSizeMB: 1,
                 });
-                setSelectedFile(compressedBlob);
+                // Конвертируем Blob в File
+                const compressedFile = new File([compressedBlob], 'pasted-image.jpg', {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+                setSelectedFile(compressedFile);
                 setIsAddingImage(true);
                 const imageUrl = URL.createObjectURL(compressedBlob);
                 setLinkForm({...linkForm, image: imageUrl});
@@ -1150,13 +1163,21 @@ export default function AdminPage() {
   };
 
   // Универсальная функция сохранения
-  const handleUniversalSave = async () => {
-    // Если есть ожидающее удаление - выполняем его
+  const handleUniversalSave = async (event: React.MouseEvent<HTMLDivElement>) => {
+    const button = event.currentTarget;
+    
+    // Если есть ожидающее удаление - выполняем его (без анимации)
     if (pendingDelete) {
       await pendingDelete.action();
       setPendingDelete(null);
       return;
     }
+    
+    // Добавляем анимацию тряски для всех кнопок при клике
+    button.classList.add('shaking');
+    setTimeout(() => {
+      button.classList.remove('shaking');
+    }, 300);
     
     // Если есть несохраненные изменения (добавление новых элементов)
     if (hasUnsavedChanges) {

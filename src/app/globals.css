@@ -36,7 +36,12 @@ body {
   background: #212121;
   padding: 30px;
   border-radius: 20px;
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 10px;
 }
@@ -45,7 +50,12 @@ body {
   background: #212121;
   padding: 30px;
   border-radius: 20px;
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 10px;
 }
@@ -54,7 +64,12 @@ body {
   background: #212121;
   padding: 30px;
   border-radius: 20px;
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 10px;
 }
@@ -67,17 +82,25 @@ body {
 
 .link_info_link {
   margin-top: 10px;
+  display: -webkit-inline-box;
+  display: -ms-inline-flexbox;
   display: inline-flex;
   font-size: 20px;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
   align-items: center;
   gap: 10px;
 
   /* красивое подчёркивание */
   text-decoration: underline;
+  -webkit-text-decoration-color: #ffffff;
   text-decoration-color: #ffffff; /* цвет подчёркивания */
   text-decoration-thickness: 0.5px; /* толщина */
   text-underline-offset: 5px; /* отступ от текста */
+  -webkit-text-decoration-skip: ink;
   text-decoration-skip-ink: auto; /* аккуратное обхождение букв */
+  -webkit-transition: all 0.3s ease;
+  -o-transition: all 0.3s ease;
   transition: all 0.3s ease;
 }
 
@@ -107,6 +130,7 @@ h2 {
 .link_info_image .linkimg {
   width: 100%;
   height: 100%;
+  -o-object-fit: cover;
   object-fit: cover;
 }
 
@@ -117,21 +141,32 @@ h2 {
 .island {
   position: fixed;
   bottom: 40px;
+  display: -webkit-inline-box;
+  display: -ms-inline-flexbox;
   display: inline-flex;
   gap: 30px;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
   align-items: center;
   left: 50%;
+  -webkit-transform: translateX(-50%);
+  -ms-transform: translateX(-50%);
   transform: translateX(-50%);
   border-radius: 100px;
   border: 1px solid #323232;
   background: rgba(54, 54, 54, 0.5);
+  -webkit-backdrop-filter: blur(5px);
   backdrop-filter: blur(5px);
   padding: 10px;
   z-index: 1000;
 }
 
 .island_admin {
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
   align-items: center;
   gap: 10px;
 }
@@ -142,32 +177,44 @@ h2 {
 }
 
 .island_admin_exit img {
+  -webkit-transition: all 0.3s ease;
+  -o-transition: all 0.3s ease;
   transition: all 0.3s ease;
 }
 
 .island_admin_exit img:hover {
+  -webkit-transform: scale(0.95);
+  -ms-transform: scale(0.95);
   transform: scale(0.95);
   cursor: pointer;
 }
 
 .add_btn {
   width: 100%;
+  -webkit-transition: all 0.3s ease;
+  -o-transition: all 0.3s ease;
   transition: all 0.3s ease;
   margin-bottom: 40px;
 }
 
 .add_btn:hover {
+  -webkit-transform: scale(0.95);
+  -ms-transform: scale(0.95);
   transform: scale(0.95);
   cursor: pointer;
 }
 
 .add_btn_img {
   width: 100%;
+  -webkit-transition: all 0.3s ease;
+  -o-transition: all 0.3s ease;
   transition: all 0.3s ease;
   margin-bottom: 40px;
 }
 
 .add_btn_img:hover {
+  -webkit-transform: scale(0.95);
+  -ms-transform: scale(0.95);
   transform: scale(0.95);
   cursor: pointer;
 }
@@ -179,9 +226,17 @@ h2 {
   width: 100%;
   aspect-ratio: 1/1;
   cursor: pointer;
+  -webkit-transition: all 0.3s ease;
+  -o-transition: all 0.3s ease;
   transition: all 0.3s ease;
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-box-pack: center;
+  -ms-flex-pack: center;
   justify-content: center;
 }
 
@@ -194,6 +249,8 @@ h2 {
   top: 50%;
   left: 50%;
   background: #fff;
+  -webkit-transition: all 0.3s ease;
+  -o-transition: all 0.3s ease;
   transition: all 0.3s ease;
 }
 
@@ -202,6 +259,8 @@ h2 {
 .add_btn_img::before {
   width: 100%;
   height: 1px;
+  -webkit-transform: translate(-50%, -50%);
+  -ms-transform: translate(-50%, -50%);
   transform: translate(-50%, -50%);
 }
 
@@ -210,6 +269,8 @@ h2 {
 .add_btn_img::after {
   width: 1px;
   height: 100%;
+  -webkit-transform: translate(-50%, -50%);
+  -ms-transform: translate(-50%, -50%);
   transform: translate(-50%, -50%);
 }
 
@@ -227,17 +288,23 @@ h2 {
 /* Состояние крестика (поворот на 45 градусов) */
 .add_btn.close::before,
 .add_btn_img.close::before {
+  -webkit-transform: translate(-50%, -50%) rotate(45deg);
+  -ms-transform: translate(-50%, -50%) rotate(45deg);
   transform: translate(-50%, -50%) rotate(45deg);
 }
 
 .add_btn.close::after,
 .add_btn_img.close::after {
+  -webkit-transform: translate(-50%, -50%) rotate(45deg);
+  -ms-transform: translate(-50%, -50%) rotate(45deg);
   transform: translate(-50%, -50%) rotate(45deg);
 }
 
 /* Hover эффект */
 .add_btn:hover,
 .add_btn_img:hover {
+  -webkit-transform: scale(0.9);
+  -ms-transform: scale(0.9);
   transform: scale(0.9);
 }
 
@@ -281,7 +348,11 @@ input:focus {
   position: absolute;
   top: 10px;
   left: 50%;
+  -webkit-transform: translateX(-50%);
+  -ms-transform: translateX(-50%);
   transform: translateX(-50%);
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
   gap: 10px;
 }
@@ -291,10 +362,16 @@ input:focus {
   height: 40px;
   cursor: pointer;
 
+  -webkit-transition: all 0.3s ease;
+
+  -o-transition: all 0.3s ease;
+
   transition: all 0.3s ease;
 }
 
 .delimg:hover {
+  -webkit-transform: scale(0.95);
+  -ms-transform: scale(0.95);
   transform: scale(0.95);
   cursor: pointer;
 }
@@ -303,17 +380,27 @@ input:focus {
   width: 40px;
   height: 40px;
   cursor: pointer;
+  -webkit-transition: all 0.3s ease;
+  -o-transition: all 0.3s ease;
   transition: all 0.3s ease;
 }
 
 .changeimg:hover {
+  -webkit-transform: scale(0.95);
+  -ms-transform: scale(0.95);
   transform: scale(0.95);
   cursor: pointer;
 }
 
 .loading_container {
+  display: -webkit-box;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-box-pack: center;
+  -ms-flex-pack: center;
   justify-content: center;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
   align-items: center;
   height: 100vh;
 }

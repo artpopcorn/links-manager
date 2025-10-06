@@ -62,9 +62,6 @@
   margin: 0;
 }
 
-.form-group {
-}
-
 .login-button {
   width: 100%;
   height: 50px;
@@ -253,4 +250,24 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* Анимация для кнопки сохранения */
+@keyframes button-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+
+/* Анимация тряски для всех кнопок сохранения */
+.save_btn.shaking,
+.island_admin_exit.shaking {
+  animation: button-shake 0.3s ease-in-out;
 }
